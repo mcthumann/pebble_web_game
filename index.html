@@ -20,7 +20,8 @@
     max-width: 480px; min-height: 100%; margin: 0 auto; padding: 20px 16px 24px;
     display: flex; flex-direction: column; gap: 14px;
   }
-  #rules { margin: 0; font-size: 17px; line-height: 1.45; }
+  #rules { margin: 0; padding-left: 22px; font-size: 17px; line-height: 1.4; }
+  #rules li + li { margin-top: 4px; }
   #rules b { font-weight: 650; }
   #solved { display: none; text-align: center; color: #fff; }
   #solved h1 { margin: 0; font-size: 64px; line-height: 1.1; }
@@ -34,6 +35,7 @@
   .node .dot { fill: var(--pebble); display: none; }
   .node.on .dot { display: block; }
   .node.on .flag { display: none; }
+  .node.fixed .ring { fill: var(--pebble); }
   .node.bad .ring { fill: var(--red); stroke: var(--red); }
   .node text { font-size: 15px; font-weight: 650; fill: var(--muted); text-anchor: middle; }
   .node.bad text { fill: var(--red); }
@@ -61,14 +63,14 @@
 </head>
 <body>
 <main>
-  <p id="rules">
-    You have <b>4 pebbles</b>. Tap a spot to place or remove a pebble.
-    You can only do that if the spot <b>before it on the line</b> has a pebble.
-    Spot 1 is always allowed. <b>Get a pebble to the flag.</b>
-  </p>
+  <ul id="rules">
+    <li>Tap a spot to place or remove one of your <b>4 pebbles</b>.</li>
+    <li>Only allowed when the spot <b>before it</b> is pebbled. Spot 0 always is.</li>
+    <li><b>Get a pebble to the flag.</b></li>
+  </ul>
   <div id="solved"><h1>Solved</h1><p id="count"></p></div>
-  <svg id="board" viewBox="-18 4 340 280" role="group" aria-label="Pebble line">
-    <path id="track" d="M40 40H264A50 50 0 0 1 264 140H40A50 50 0 0 0 40 240H264"/>
+  <svg id="board" viewBox="-18 6 340 336" role="group" aria-label="Pebble line">
+    <path id="track" d="M40 40H265A42 42 0 0 1 265 124H40A42 42 0 0 0 40 208H265A42 42 0 0 1 265 292H40"/>
   </svg>
   <div id="bar">
     <div id="hand"></div>
@@ -76,39 +78,40 @@
   </div>
 </main>
 <script>
-  const N = 15, P = 4, PER_ROW = 5;
-  const X0 = 40, DX = 56, Y0 = 40, DY = 100, R = 21;
+  const N = 15, P = 4, PER_ROW = 4;
+  const X0 = 40, DX = 75, Y0 = 40, DY = 84, R = 23;
   const SVG = 'http://www.w3.org/2000/svg';
   const board = document.getElementById('board');
   const hand = document.getElementById('hand');
 
   let pebbled, moves, won;
-  const nodes = [null];
+  const nodes = [];
 
-  // The line snakes: row 1 runs left to right, row 2 right to left, row 3 left to right.
-  for (let i = 1; i <= N; i++) {
-    const row = Math.floor((i - 1) / PER_ROW), k = (i - 1) % PER_ROW;
+  // Spots 0..15 snake along the line: rows alternate left-to-right and right-to-left.
+  // Spot 0 is permanently pebbled and does not use one of the player's pebbles.
+  for (let i = 0; i <= N; i++) {
+    const row = Math.floor(i / PER_ROW), k = i % PER_ROW;
     const x = X0 + DX * (row % 2 ? PER_ROW - 1 - k : k), y = Y0 + DY * row;
     const g = document.createElementNS(SVG, 'g');
-    g.setAttribute('class', 'node');
+    g.setAttribute('class', i === 0 ? 'node fixed' : 'node');
     g.setAttribute('role', 'button');
     g.setAttribute('aria-label', 'Spot ' + i);
     g.innerHTML =
-      '<rect class="hit" x="' + (x - DX / 2) + '" y="' + (y - 30) + '" width="' + DX + '" height="78"/>' +
+      '<rect class="hit" x="' + (x - DX / 2) + '" y="' + (y - 30) + '" width="' + DX + '" height="76"/>' +
       '<circle class="ring" cx="' + x + '" cy="' + y + '" r="' + R + '"/>' +
       (i === N
         ? '<g class="flag" transform="translate(' + (x - 7) + ' ' + (y - 12) + ')">' +
           '<path d="M2 1v22" stroke="#1F2329" stroke-width="2.6" stroke-linecap="round" fill="none"/>' +
           '<path d="M3.5 2h13l-3.5 4.5 3.5 4.5h-13z" fill="#1F2329"/></g>'
         : '') +
-      '<circle class="dot" cx="' + x + '" cy="' + y + '" r="13"/>' +
+      '<circle class="dot" cx="' + x + '" cy="' + y + '" r="14"/>' +
       '<text x="' + x + '" y="' + (y + R + 19) + '">' + i + '</text>';
     g.addEventListener('click', () => tap(i));
     board.appendChild(g);
     nodes.push(g);
   }
 
-  function inHand() { return P - pebbled.filter(Boolean).length; }
+  function inHand() { return P - pebbled.slice(1).filter(Boolean).length; }
 
   function flash(el) {
     el.classList.add('bad');
@@ -119,8 +122,7 @@
   function tap(i) {
     if (won) return;
     const placing = !pebbled[i];
-    const allowed = i === 1 || pebbled[i - 1];
-    if (!allowed) { flash(nodes[i]); return; }
+    if (i === 0 || !pebbled[i - 1]) { flash(nodes[i]); return; }
     if (placing && inHand() === 0) { flash(nodes[i]); flash(hand); return; }
     pebbled[i] = placing;
     moves++;
@@ -130,6 +132,7 @@
 
   function render() {
     for (let i = 1; i <= N; i++) nodes[i].classList.toggle('on', pebbled[i]);
+    nodes[0].classList.add('on');
     const left = inHand();
     let dots = '';
     for (let k = 0; k < P; k++) dots += '<i class="' + (k < left ? '' : 'used') + '"></i>';
@@ -140,6 +143,7 @@
 
   function reset() {
     pebbled = new Array(N + 1).fill(false);
+    pebbled[0] = true;
     moves = 0;
     won = false;
     render();
