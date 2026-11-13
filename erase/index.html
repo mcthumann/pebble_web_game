@@ -61,6 +61,7 @@
   .node .dot { fill: var(--pebble); display: none; }
   .node.on .dot { display: block; }
   .node.on .flag { display: none; }
+  .node.goal .ring { stroke-dasharray: 7 5; }
   .node.fixed .ring { fill: var(--pebble); }
   .node.erased .ring { fill: var(--erase); stroke: var(--erase); }
   .node.bad .ring { fill: var(--red); stroke: var(--red); }
@@ -90,12 +91,12 @@
 <body>
 <main>
   <div id="levels">
-    <button type="button" data-p="2" data-n="7" data-lam="2" data-budget="20">Easy</button>
-    <button type="button" data-p="3" data-n="11" data-lam="3" data-budget="30">Medium</button>
-    <button type="button" data-p="4" data-n="15" data-lam="5" data-budget="37">Hard</button>
+    <button type="button" data-p="2" data-n="3" data-lam="2" data-budget="8">Easy</button>
+    <button type="button" data-p="3" data-n="6" data-lam="4" data-budget="18">Medium</button>
+    <button type="button" data-p="4" data-n="8" data-lam="5" data-budget="21">Hard</button>
   </div>
   <div id="info">
-    <p>Follow the rules on the slide. <b>Get to the flag within budget.</b></p>
+    <p>Follow the rules on the slide. <b>Pebble the flag and clean up every other pebble, within budget.</b></p>
     <p class="how"><b>Tap</b> to place or remove: costs 1. <b>Hold</b> a pebble to erase it: costs &lambda;.</p>
   </div>
   <div id="stats">
@@ -113,8 +114,10 @@
 <script>
   // Semi-reversible pebble game. A tap places or removes a pebble on a spot whose
   // predecessor is pebbled (cost 1). Holding a pebble erases it from anywhere
-  // (cost lambda). Reaching the flag within budget turns the screen green, over
-  // budget turns it red. Level settings are on the buttons above.
+  // (cost lambda). The game ends when the flag is pebbled and every other pebble
+  // is back in hand: green if the cost is within budget, red if it is over.
+  // Level settings are on the buttons above. Hard sits on the memory wall
+  // (flag = 2^(P-1)): its budget is the optimum, one erasure at the midpoint.
   const PER_ROW = 4, HOLD_MS = 450;
   const X0 = 40, DX = 75, Y0 = 40, DY = 84, R = 23, XR = X0 + DX * (PER_ROW - 1);
   const SVG = 'http://www.w3.org/2000/svg';
@@ -129,21 +132,22 @@
   // Spots 0..N snake along one line: rows alternate left-to-right and right-to-left.
   // Spot 0 is permanently pebbled and does not use one of the player's pebbles.
   function build() {
-    const rows = (N + 1) / PER_ROW;
-    let d = 'M' + X0 + ' ' + Y0 + 'H' + XR;
-    for (let r = 1; r < rows; r++) {
-      const y = Y0 + DY * r, right = r % 2 === 1;
-      d += 'A' + DY / 2 + ' ' + DY / 2 + ' 0 0 ' + (right ? 1 : 0) + ' ' + (right ? XR : X0) + ' ' + y +
-           'H' + (right ? X0 : XR);
+    const rows = Math.ceil((N + 1) / PER_ROW);
+    const xOf = i => { const r = Math.floor(i / PER_ROW), k = i % PER_ROW; return X0 + DX * (r % 2 ? PER_ROW - 1 - k : k); };
+    // Each row runs to its last spot; full rows bend down into the next one. The last row may be partial.
+    let d = 'M' + X0 + ' ' + Y0;
+    for (let r = 0; r < rows; r++) {
+      d += 'H' + xOf(Math.min(N, PER_ROW * r + PER_ROW - 1));
+      if (r < rows - 1) d += 'A' + DY / 2 + ' ' + DY / 2 + ' 0 0 ' + (r % 2 ? 0 : 1) + ' ' +
+                             xOf(PER_ROW * (r + 1)) + ' ' + (Y0 + DY * (r + 1));
     }
     board.setAttribute('viewBox', '-18 6 340 ' + rows * DY);
     board.innerHTML = '<path id="track" d="' + d + '"/>';
     nodes = [];
     for (let i = 0; i <= N; i++) {
-      const row = Math.floor(i / PER_ROW), k = i % PER_ROW;
-      const x = X0 + DX * (row % 2 ? PER_ROW - 1 - k : k), y = Y0 + DY * row;
+      const x = xOf(i), y = Y0 + DY * Math.floor(i / PER_ROW);
       const g = document.createElementNS(SVG, 'g');
-      g.setAttribute('class', i === 0 ? 'node fixed' : 'node');
+      g.setAttribute('class', i === 0 ? 'node fixed' : i === N ? 'node goal' : 'node');
       g.setAttribute('role', 'button');
       g.setAttribute('aria-label', 'Spot ' + i);
       g.innerHTML =
@@ -177,8 +181,9 @@
     if (moves + erasures === 0) startedAt = performance.now();
   }
 
-  function finishIfFlag(i) {
-    if (i === N && pebbled[N]) { done = true; solveMs = performance.now() - startedAt; }
+  // Finished once the flag is pebbled and it is the only pebble on the line (spot 0 aside).
+  function finishIfClean() {
+    if (pebbled[N] && inHand() === P - 1) { done = true; solveMs = performance.now() - startedAt; }
   }
 
   // Tap: the reversible move.
@@ -190,7 +195,7 @@
     act();
     pebbled[i] = placing;
     moves++;
-    finishIfFlag(i);
+    finishIfClean();
     render();
   }
 
@@ -205,6 +210,7 @@
       pebbled[i] = false;
       erasures++;
       flash(nodes[i], 'erased');
+      finishIfClean();
       render();
     }, HOLD_MS);
   }
