@@ -31,12 +31,21 @@
   #levels button.sel { background: var(--pebble); border-color: var(--pebble); color: #fff; }
 
   #info {
+    margin: 0; list-style: none;
     background: #F4F5F7; border: 2px solid var(--faint); border-radius: 12px;
-    padding: 12px 14px; font-size: 17px; line-height: 1.4;
+    padding: 12px 14px; font-size: 16px; line-height: 1.35;
   }
-  #info p { margin: 0; }
-  #info p + p { margin-top: 6px; }
-  #info .how { font-size: 15px; color: #4A5058; }
+  #info li { position: relative; padding-left: 18px; }
+  #info li + li { margin-top: 7px; }
+  #info li::before {
+    content: ""; position: absolute; left: 2px; top: .5em;
+    width: 7px; height: 7px; border-radius: 50%; background: var(--pebble);
+  }
+  #info .price {
+    display: inline-block; margin-left: 2px; padding: 0 8px; border-radius: 999px;
+    background: #fff; border: 1.5px solid var(--faint);
+    font-size: 13px; font-weight: 650; color: #4A5058; white-space: nowrap;
+  }
 
   #stats { display: flex; gap: 8px; margin-bottom: 14px; }
   .stat {
@@ -91,14 +100,16 @@
 <body>
 <main>
   <div id="levels">
-    <button type="button" data-p="2" data-n="3" data-lam="2" data-budget="8">Easy</button>
-    <button type="button" data-p="3" data-n="6" data-lam="4" data-budget="18">Medium</button>
-    <button type="button" data-p="4" data-n="8" data-lam="5" data-budget="21">Hard</button>
+    <button type="button" data-p="3" data-n="6" data-lam="4" data-budget="18" data-row="4">Easy</button>
+    <button type="button" data-p="4" data-n="8" data-lam="5" data-budget="21" data-row="4">Medium</button>
+    <button type="button" data-p="4" data-n="16" data-lam="5" data-budget="47" data-row="5">Hard</button>
   </div>
-  <div id="info">
-    <p>Follow the rules on the slide. <b>Pebble the flag and clean up every other pebble, within budget.</b></p>
-    <p class="how"><b>Tap</b> to place or remove: costs 1. <b>Hold</b> a pebble to erase it: costs &lambda;.</p>
-  </div>
+  <ul id="info">
+    <li>Rules are on the slide.</li>
+    <li><b>Tap</b> to place or remove. <span class="price">cost 1</span></li>
+    <li><b>Hold</b> to erase. <span class="price">cost &lambda;</span></li>
+    <li><b>Goal:</b> only the flag pebbled, within budget.</li>
+  </ul>
   <div id="stats">
     <div class="stat"><span>Erasure price &lambda;</span><b id="lam"></b></div>
     <div class="stat"><span>Budget</span><b id="budget"></b></div>
@@ -116,16 +127,17 @@
   // predecessor is pebbled (cost 1). Holding a pebble erases it from anywhere
   // (cost lambda). The game ends when the flag is pebbled and every other pebble
   // is back in hand: green if the cost is within budget, red if it is over.
-  // Level settings are on the buttons above. Hard sits on the memory wall
+  // Level settings are on the buttons above. Medium sits on the memory wall
   // (flag = 2^(P-1)): its budget is the optimum, one erasure at the midpoint.
-  const PER_ROW = 4, HOLD_MS = 450;
-  const X0 = 40, DX = 75, Y0 = 40, DY = 84, R = 23, XR = X0 + DX * (PER_ROW - 1);
+  // Hard's budget is also the optimum: every cheapest solution erases 4, 7, 10, 13.
+  const HOLD_MS = 450;
+  const X0 = 40, SPAN = 225, Y0 = 40, DY = 84;
   const SVG = 'http://www.w3.org/2000/svg';
   const $ = id => document.getElementById(id);
   const board = $('board'), hand = $('hand');
   const levelButtons = [...document.querySelectorAll('#levels button')];
 
-  let P, N, LAM, BUDGET, levelName;
+  let P, N, LAM, BUDGET, levelName, PER_ROW, DX, R;
   let pebbled, moves, erasures, done, nodes, startedAt, solveMs;
   let holdTimer = null, suppressClick = false;
 
@@ -158,7 +170,7 @@
             '<path d="M2 1v22" stroke="#1F2329" stroke-width="2.6" stroke-linecap="round" fill="none"/>' +
             '<path d="M3.5 2h13l-3.5 4.5 3.5 4.5h-13z" fill="#1F2329"/></g>'
           : '') +
-        '<circle class="dot" cx="' + x + '" cy="' + y + '" r="14"/>' +
+        '<circle class="dot" cx="' + x + '" cy="' + y + '" r="' + (R - 9) + '"/>' +
         '<text x="' + x + '" y="' + (y + R + 19) + '">' + i + '</text>';
       g.addEventListener('pointerdown', () => press(i));
       for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) g.addEventListener(ev, release);
@@ -256,6 +268,9 @@
     N = Number(btn.dataset.n);
     LAM = Number(btn.dataset.lam);
     BUDGET = Number(btn.dataset.budget);
+    PER_ROW = Number(btn.dataset.row);
+    DX = SPAN / (PER_ROW - 1);
+    R = Math.min(23, DX / 2 - 6);
     levelName = btn.textContent;
     levelButtons.forEach(b => b.classList.toggle('sel', b === btn));
     $('lam').textContent = LAM;
