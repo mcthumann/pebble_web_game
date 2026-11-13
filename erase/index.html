@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Pebble Game: Erasures</title>
+<style>
+  :root {
+    --ink: #1F2329; --muted: #7A808A; --faint: #D5D9DF;
+    --pebble: #1A1C20; --red: #E31A1C; --green: #009E73; --erase: #D55E00;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: #fff; color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    touch-action: manipulation; user-select: none; -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  main {
+    max-width: 480px; min-height: 100%; margin: 0 auto; padding: 20px 16px 24px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  button {
+    font: inherit; font-size: 16px; font-weight: 600; padding: 10px 18px;
+    background: #fff; color: var(--ink); border: 2px solid var(--faint); border-radius: 10px;
+  }
+
+  #levels { display: flex; gap: 8px; }
+  #levels button { flex: 1; padding: 10px 0; }
+  #levels button.sel { background: var(--pebble); border-color: var(--pebble); color: #fff; }
+
+  #info {
+    background: #F4F5F7; border: 2px solid var(--faint); border-radius: 12px;
+    padding: 12px 14px; font-size: 17px; line-height: 1.4;
+  }
+  #info p { margin: 0; }
+  #info p + p { margin-top: 6px; }
+  #info .how { font-size: 15px; color: #4A5058; }
+
+  #stats { display: flex; gap: 8px; margin-bottom: 14px; }
+  .stat {
+    flex: 1; text-align: center; padding: 8px 4px;
+    border: 2px solid var(--faint); border-radius: 12px;
+  }
+  .stat span { display: block; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .stat b { display: block; font-size: 26px; line-height: 1.15; font-variant-numeric: tabular-nums; }
+  #costBox.over { background: var(--red); border-color: var(--red); }
+  #costBox.over span, #costBox.over b { color: #fff; }
+
+  #result { display: none; text-align: center; color: #fff; margin-bottom: 14px; }
+  #result h1 { margin: 0; font-size: 56px; line-height: 1.1; }
+  #result p { margin: 4px 0 0; font-size: 22px; }
+  #result #time { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  #board { display: block; width: 100%; height: auto; }
+  #track { fill: none; stroke: var(--pebble); stroke-width: 9; stroke-linecap: round; }
+  .node { cursor: pointer; touch-action: none; }
+  .node .hit { fill: transparent; }
+  .node .ring { fill: #fff; stroke: var(--pebble); stroke-width: 4; }
+  .node .dot { fill: var(--pebble); display: none; }
+  .node.on .dot { display: block; }
+  .node.on .flag { display: none; }
+  .node.fixed .ring { fill: var(--pebble); }
+  .node.erased .ring { fill: var(--erase); stroke: var(--erase); }
+  .node.bad .ring { fill: var(--red); stroke: var(--red); }
+  .node text { font-size: 15px; font-weight: 650; fill: var(--muted); text-anchor: middle; }
+  .node.bad text { fill: var(--red); }
+  .node.erased text { fill: var(--erase); }
+
+  #bar { display: flex; align-items: center; justify-content: space-between; }
+  #hand { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; font-size: 16px; }
+  #hand.bad { background: var(--red); color: #fff; }
+  #hand i {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--pebble); border: 2px solid var(--pebble);
+  }
+  #hand i.used { background: transparent; border-color: var(--faint); }
+
+  body.done #info, body.done #stats { display: none; }
+  body.done #result { display: block; }
+  body.done #hand { color: #fff; }
+  body.done .node text { fill: #fff; }
+  body.done button { border-color: #fff; }
+  body.done #levels button.sel { border-color: var(--pebble); }
+  body.won { background: var(--green); }
+  body.lost { background: var(--red); }
+</style>
+</head>
+<body>
+<main>
+  <div id="levels">
+    <button type="button" data-p="2" data-n="7" data-lam="2" data-budget="20">Easy</button>
+    <button type="button" data-p="3" data-n="11" data-lam="3" data-budget="30">Medium</button>
+    <button type="button" data-p="4" data-n="15" data-lam="5" data-budget="37">Hard</button>
+  </div>
+  <div id="info">
+    <p>Follow the rules on the slide. <b>Get to the flag within budget.</b></p>
+    <p class="how"><b>Tap</b> to place or remove: costs 1. <b>Hold</b> a pebble to erase it: costs &lambda;.</p>
+  </div>
+  <div id="stats">
+    <div class="stat"><span>Erasure price &lambda;</span><b id="lam"></b></div>
+    <div class="stat"><span>Budget</span><b id="budget"></b></div>
+    <div class="stat" id="costBox"><span>Cost so far</span><b id="cost"></b></div>
+  </div>
+  <div id="result"><h1 id="verdict"></h1><p id="time"></p><p id="summary"></p><p id="detail"></p></div>
+  <svg id="board" role="group" aria-label="Pebble line"></svg>
+  <div id="bar">
+    <div id="hand"></div>
+    <button id="reset" type="button">Reset</button>
+  </div>
+</main>
+<script>
+  // Semi-reversible pebble game. A tap places or removes a pebble on a spot whose
+  // predecessor is pebbled (cost 1). Holding a pebble erases it from anywhere
+  // (cost lambda). Reaching the flag within budget turns the screen green, over
+  // budget turns it red. Level settings are on the buttons above.
+  const PER_ROW = 4, HOLD_MS = 450;
+  const X0 = 40, DX = 75, Y0 = 40, DY = 84, R = 23, XR = X0 + DX * (PER_ROW - 1);
+  const SVG = 'http://www.w3.org/2000/svg';
+  const $ = id => document.getElementById(id);
+  const board = $('board'), hand = $('hand');
+  const levelButtons = [...document.querySelectorAll('#levels button')];
+
+  let P, N, LAM, BUDGET, levelName;
+  let pebbled, moves, erasures, done, nodes, startedAt, solveMs;
+  let holdTimer = null, suppressClick = false;
+
+  // Spots 0..N snake along one line: rows alternate left-to-right and right-to-left.
+  // Spot 0 is permanently pebbled and does not use one of the player's pebbles.
+  function build() {
+    const rows = (N + 1) / PER_ROW;
+    let d = 'M' + X0 + ' ' + Y0 + 'H' + XR;
+    for (let r = 1; r < rows; r++) {
+      const y = Y0 + DY * r, right = r % 2 === 1;
+      d += 'A' + DY / 2 + ' ' + DY / 2 + ' 0 0 ' + (right ? 1 : 0) + ' ' + (right ? XR : X0) + ' ' + y +
+           'H' + (right ? X0 : XR);
+    }
+    board.setAttribute('viewBox', '-18 6 340 ' + rows * DY);
+    board.innerHTML = '<path id="track" d="' + d + '"/>';
+    nodes = [];
+    for (let i = 0; i <= N; i++) {
+      const row = Math.floor(i / PER_ROW), k = i % PER_ROW;
+      const x = X0 + DX * (row % 2 ? PER_ROW - 1 - k : k), y = Y0 + DY * row;
+      const g = document.createElementNS(SVG, 'g');
+      g.setAttribute('class', i === 0 ? 'node fixed' : 'node');
+      g.setAttribute('role', 'button');
+      g.setAttribute('aria-label', 'Spot ' + i);
+      g.innerHTML =
+        '<rect class="hit" x="' + (x - DX / 2) + '" y="' + (y - 30) + '" width="' + DX + '" height="76"/>' +
+        '<circle class="ring" cx="' + x + '" cy="' + y + '" r="' + R + '"/>' +
+        (i === N
+          ? '<g class="flag" transform="translate(' + (x - 7) + ' ' + (y - 12) + ')">' +
+            '<path d="M2 1v22" stroke="#1F2329" stroke-width="2.6" stroke-linecap="round" fill="none"/>' +
+            '<path d="M3.5 2h13l-3.5 4.5 3.5 4.5h-13z" fill="#1F2329"/></g>'
+          : '') +
+        '<circle class="dot" cx="' + x + '" cy="' + y + '" r="14"/>' +
+        '<text x="' + x + '" y="' + (y + R + 19) + '">' + i + '</text>';
+      g.addEventListener('pointerdown', () => press(i));
+      for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) g.addEventListener(ev, release);
+      g.addEventListener('click', () => { if (suppressClick) { suppressClick = false; return; } tap(i); });
+      board.appendChild(g);
+      nodes.push(g);
+    }
+  }
+
+  function inHand() { return P - pebbled.slice(1).filter(Boolean).length; }
+  function cost() { return moves + LAM * erasures; }
+
+  function flash(el, cls) {
+    el.classList.add(cls);
+    clearTimeout(el[cls + 'Timer']);
+    el[cls + 'Timer'] = setTimeout(() => el.classList.remove(cls), 450);
+  }
+
+  function act() {
+    if (moves + erasures === 0) startedAt = performance.now();
+  }
+
+  function finishIfFlag(i) {
+    if (i === N && pebbled[N]) { done = true; solveMs = performance.now() - startedAt; }
+  }
+
+  // Tap: the reversible move.
+  function tap(i) {
+    if (done) return;
+    const placing = !pebbled[i];
+    if (i === 0 || !pebbled[i - 1]) { flash(nodes[i], 'bad'); return; }
+    if (placing && inHand() === 0) { flash(nodes[i], 'bad'); flash(hand, 'bad'); return; }
+    act();
+    pebbled[i] = placing;
+    moves++;
+    finishIfFlag(i);
+    render();
+  }
+
+  // Hold: erase a pebble from anywhere, at price lambda.
+  function press(i) {
+    suppressClick = false;
+    clearTimeout(holdTimer);
+    if (done || i === 0 || !pebbled[i]) return;
+    holdTimer = setTimeout(() => {
+      suppressClick = true;
+      act();
+      pebbled[i] = false;
+      erasures++;
+      flash(nodes[i], 'erased');
+      render();
+    }, HOLD_MS);
+  }
+  function release() { clearTimeout(holdTimer); }
+
+  function clock(ms) {
+    const t = Math.round(ms / 100), m = Math.floor(t / 600), sec = ((t % 600) / 10).toFixed(1);
+    return m ? m + ':' + sec.padStart(4, '0') : sec + ' s';
+  }
+
+  function render() {
+    for (let i = 0; i <= N; i++) nodes[i].classList.toggle('on', pebbled[i]);
+    const left = inHand(), c = cost(), over = c > BUDGET;
+    let dots = '';
+    for (let k = 0; k < P; k++) dots += '<i class="' + (k < left ? '' : 'used') + '"></i>';
+    hand.innerHTML = dots + '<span>' + left + ' in hand</span>';
+    $('cost').textContent = c;
+    $('costBox').classList.toggle('over', over);
+    document.body.classList.toggle('done', done);
+    document.body.classList.toggle('won', done && !over);
+    document.body.classList.toggle('lost', done && over);
+    if (done) {
+      $('verdict').textContent = over ? 'Over budget' : 'Solved';
+      $('time').textContent = clock(solveMs);
+      $('summary').textContent = levelName + ' · cost ' + c + ' of ' + BUDGET;
+      $('detail').textContent = moves + ' moves + ' + erasures + (erasures === 1 ? ' erasure' : ' erasures') +
+        ' × ' + LAM;
+    }
+  }
+
+  function reset() {
+    clearTimeout(holdTimer);
+    pebbled = new Array(N + 1).fill(false);
+    pebbled[0] = true;
+    moves = 0;
+    erasures = 0;
+    done = false;
+    render();
+  }
+
+  function setLevel(btn) {
+    P = Number(btn.dataset.p);
+    N = Number(btn.dataset.n);
+    LAM = Number(btn.dataset.lam);
+    BUDGET = Number(btn.dataset.budget);
+    levelName = btn.textContent;
+    levelButtons.forEach(b => b.classList.toggle('sel', b === btn));
+    $('lam').textContent = LAM;
+    $('budget').textContent = BUDGET;
+    build();
+    reset();
+  }
+
+  levelButtons.forEach(b => b.addEventListener('click', () => setLevel(b)));
+  $('reset').addEventListener('click', reset);
+  board.addEventListener('contextmenu', e => e.preventDefault());
+  setLevel(levelButtons[0]);
+</script>
+</body>
+</html>
