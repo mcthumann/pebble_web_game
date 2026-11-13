@@ -20,12 +20,25 @@
     max-width: 480px; min-height: 100%; margin: 0 auto; padding: 20px 16px 24px;
     display: flex; flex-direction: column; gap: 14px;
   }
-  #rules {
-    margin: 0 0 10px; padding: 14px 16px 14px 36px; font-size: 17px; line-height: 1.4;
-    background: #F4F5F7; border: 2px solid var(--faint); border-radius: 12px;
+  button {
+    font: inherit; font-size: 16px; font-weight: 600; padding: 10px 18px;
+    background: #fff; color: var(--ink); border: 2px solid var(--faint); border-radius: 10px;
   }
-  #rules li + li { margin-top: 4px; }
-  #rules b { font-weight: 650; }
+
+  #levels { display: flex; gap: 8px; }
+  #levels button { flex: 1; padding: 10px 0; }
+  #levels button.sel { background: var(--pebble); border-color: var(--pebble); color: #fff; }
+
+  #info {
+    background: #F4F5F7; border: 2px solid var(--faint); border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 6px; font-size: 17px; line-height: 1.4;
+  }
+  #top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  #top p { margin: 0; }
+  #hintBtn { padding: 8px 14px; flex: none; }
+  #hint { display: none; margin: 10px 0 0; padding-top: 10px; border-top: 2px solid var(--faint); font-weight: 600; }
+  #info.open #hint { display: block; }
+
   #solved { display: none; text-align: center; color: #fff; }
   #solved h1 { margin: 0; font-size: 64px; line-height: 1.1; }
   #solved p { margin: 4px 0 0; font-size: 24px; }
@@ -51,67 +64,83 @@
     background: var(--pebble); border: 2px solid var(--pebble);
   }
   #hand i.used { background: transparent; border-color: var(--faint); }
-  #reset {
-    font: inherit; font-size: 16px; font-weight: 600; padding: 10px 18px;
-    background: #fff; color: var(--ink); border: 2px solid var(--faint); border-radius: 10px;
-  }
 
   body.won { background: var(--green); }
-  body.won #rules { display: none; }
+  body.won #info { display: none; }
   body.won #solved { display: block; }
   body.won #hand { color: #fff; }
   body.won .node text { fill: #fff; }
-  body.won #reset { border-color: #fff; }
+  body.won button { border-color: #fff; }
+  body.won #levels button.sel { border-color: var(--pebble); }
 </style>
 </head>
 <body>
 <main>
-  <ul id="rules">
-    <li>Tap a spot to place or remove one of your <b>4 pebbles</b>.</li>
-    <li>Only allowed when the spot <b>before it</b> is pebbled. Spot 0 always is.</li>
-    <li><b>Get a pebble to the flag.</b></li>
-  </ul>
+  <div id="levels">
+    <button type="button" data-p="2">Easy</button>
+    <button type="button" data-p="3">Medium</button>
+    <button type="button" data-p="4">Hard</button>
+  </div>
+  <div id="info">
+    <div id="top">
+      <p>Follow the rules on the slide. <b>Get to the flag.</b></p>
+      <button id="hintBtn" type="button">Hint</button>
+    </div>
+    <p id="hint">To advance forward, focus on recovering from behind.</p>
+  </div>
   <div id="solved"><h1>Solved</h1><p id="count"></p></div>
-  <svg id="board" viewBox="-18 6 340 336" role="group" aria-label="Pebble line">
-    <path id="track" d="M40 40H265A42 42 0 0 1 265 124H40A42 42 0 0 0 40 208H265A42 42 0 0 1 265 292H40"/>
-  </svg>
+  <svg id="board" role="group" aria-label="Pebble line"></svg>
   <div id="bar">
     <div id="hand"></div>
     <button id="reset" type="button">Reset</button>
   </div>
 </main>
 <script>
-  const N = 15, P = 4, PER_ROW = 4;
-  const X0 = 40, DX = 75, Y0 = 40, DY = 84, R = 23;
+  // Easy, Medium, Hard give 2, 3, 4 pebbles. With P pebbles the furthest
+  // reachable spot is 2^P - 1, so that is where the flag goes: 3, 7, 15.
+  const PER_ROW = 4;
+  const X0 = 40, DX = 75, Y0 = 40, DY = 84, R = 23, XR = X0 + DX * (PER_ROW - 1);
   const SVG = 'http://www.w3.org/2000/svg';
   const board = document.getElementById('board');
   const hand = document.getElementById('hand');
+  const levelButtons = [...document.querySelectorAll('#levels button')];
 
-  let pebbled, moves, won;
-  const nodes = [];
+  let P, N, levelName, pebbled, moves, won, nodes;
 
-  // Spots 0..15 snake along the line: rows alternate left-to-right and right-to-left.
+  // Spots 0..N snake along one line: rows alternate left-to-right and right-to-left.
   // Spot 0 is permanently pebbled and does not use one of the player's pebbles.
-  for (let i = 0; i <= N; i++) {
-    const row = Math.floor(i / PER_ROW), k = i % PER_ROW;
-    const x = X0 + DX * (row % 2 ? PER_ROW - 1 - k : k), y = Y0 + DY * row;
-    const g = document.createElementNS(SVG, 'g');
-    g.setAttribute('class', i === 0 ? 'node fixed' : 'node');
-    g.setAttribute('role', 'button');
-    g.setAttribute('aria-label', 'Spot ' + i);
-    g.innerHTML =
-      '<rect class="hit" x="' + (x - DX / 2) + '" y="' + (y - 30) + '" width="' + DX + '" height="76"/>' +
-      '<circle class="ring" cx="' + x + '" cy="' + y + '" r="' + R + '"/>' +
-      (i === N
-        ? '<g class="flag" transform="translate(' + (x - 7) + ' ' + (y - 12) + ')">' +
-          '<path d="M2 1v22" stroke="#1F2329" stroke-width="2.6" stroke-linecap="round" fill="none"/>' +
-          '<path d="M3.5 2h13l-3.5 4.5 3.5 4.5h-13z" fill="#1F2329"/></g>'
-        : '') +
-      '<circle class="dot" cx="' + x + '" cy="' + y + '" r="14"/>' +
-      '<text x="' + x + '" y="' + (y + R + 19) + '">' + i + '</text>';
-    g.addEventListener('click', () => tap(i));
-    board.appendChild(g);
-    nodes.push(g);
+  function build() {
+    const rows = (N + 1) / PER_ROW;
+    let d = 'M' + X0 + ' ' + Y0 + 'H' + XR;
+    for (let r = 1; r < rows; r++) {
+      const y = Y0 + DY * r, right = r % 2 === 1;
+      d += 'A' + DY / 2 + ' ' + DY / 2 + ' 0 0 ' + (right ? 1 : 0) + ' ' + (right ? XR : X0) + ' ' + y +
+           'H' + (right ? X0 : XR);
+    }
+    board.setAttribute('viewBox', '-18 6 340 ' + rows * DY);
+    board.innerHTML = '<path id="track" d="' + d + '"/>';
+    nodes = [];
+    for (let i = 0; i <= N; i++) {
+      const row = Math.floor(i / PER_ROW), k = i % PER_ROW;
+      const x = X0 + DX * (row % 2 ? PER_ROW - 1 - k : k), y = Y0 + DY * row;
+      const g = document.createElementNS(SVG, 'g');
+      g.setAttribute('class', i === 0 ? 'node fixed' : 'node');
+      g.setAttribute('role', 'button');
+      g.setAttribute('aria-label', 'Spot ' + i);
+      g.innerHTML =
+        '<rect class="hit" x="' + (x - DX / 2) + '" y="' + (y - 30) + '" width="' + DX + '" height="76"/>' +
+        '<circle class="ring" cx="' + x + '" cy="' + y + '" r="' + R + '"/>' +
+        (i === N
+          ? '<g class="flag" transform="translate(' + (x - 7) + ' ' + (y - 12) + ')">' +
+            '<path d="M2 1v22" stroke="#1F2329" stroke-width="2.6" stroke-linecap="round" fill="none"/>' +
+            '<path d="M3.5 2h13l-3.5 4.5 3.5 4.5h-13z" fill="#1F2329"/></g>'
+          : '') +
+        '<circle class="dot" cx="' + x + '" cy="' + y + '" r="14"/>' +
+        '<text x="' + x + '" y="' + (y + R + 19) + '">' + i + '</text>';
+      g.addEventListener('click', () => tap(i));
+      board.appendChild(g);
+      nodes.push(g);
+    }
   }
 
   function inHand() { return P - pebbled.slice(1).filter(Boolean).length; }
@@ -134,14 +163,13 @@
   }
 
   function render() {
-    for (let i = 1; i <= N; i++) nodes[i].classList.toggle('on', pebbled[i]);
-    nodes[0].classList.add('on');
+    for (let i = 0; i <= N; i++) nodes[i].classList.toggle('on', pebbled[i]);
     const left = inHand();
     let dots = '';
     for (let k = 0; k < P; k++) dots += '<i class="' + (k < left ? '' : 'used') + '"></i>';
     hand.innerHTML = dots + '<span>' + left + ' in hand</span>';
     document.body.classList.toggle('won', won);
-    document.getElementById('count').textContent = moves + ' moves';
+    document.getElementById('count').textContent = levelName + ' · ' + moves + ' moves';
   }
 
   function reset() {
@@ -152,8 +180,20 @@
     render();
   }
 
+  function setLevel(btn) {
+    P = Number(btn.dataset.p);
+    N = 2 ** P - 1;
+    levelName = btn.textContent;
+    levelButtons.forEach(b => b.classList.toggle('sel', b === btn));
+    build();
+    reset();
+  }
+
+  levelButtons.forEach(b => b.addEventListener('click', () => setLevel(b)));
   document.getElementById('reset').addEventListener('click', reset);
-  reset();
+  document.getElementById('hintBtn').addEventListener('click', () =>
+    document.getElementById('info').classList.toggle('open'));
+  setLevel(levelButtons[0]);
 </script>
 </body>
 </html>
