@@ -31,7 +31,7 @@
 
   #info {
     background: #F4F5F7; border: 2px solid var(--faint); border-radius: 12px;
-    padding: 12px 14px; margin-bottom: 6px; font-size: 17px; line-height: 1.4;
+    padding: 12px 14px; margin-bottom: 26px; font-size: 17px; line-height: 1.4;
   }
   #top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   #top p { margin: 0; }
@@ -39,9 +39,10 @@
   #hint { display: none; margin: 10px 0 0; padding-top: 10px; border-top: 2px solid var(--faint); font-weight: 600; }
   #info.open #hint { display: block; }
 
-  #solved { display: none; text-align: center; color: #fff; }
+  #solved { display: none; text-align: center; color: #fff; margin-bottom: 20px; }
   #solved h1 { margin: 0; font-size: 64px; line-height: 1.1; }
   #solved p { margin: 4px 0 0; font-size: 24px; }
+  #solved #time { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
 
   #board { display: block; width: 100%; height: auto; }
   #track { fill: none; stroke: var(--pebble); stroke-width: 9; stroke-linecap: round; }
@@ -88,7 +89,7 @@
     </div>
     <p id="hint">To advance forward, focus on recovering from behind.</p>
   </div>
-  <div id="solved"><h1>Solved</h1><p id="count"></p></div>
+  <div id="solved"><h1>Solved</h1><p id="time"></p><p id="count"></p></div>
   <svg id="board" role="group" aria-label="Pebble line"></svg>
   <div id="bar">
     <div id="hand"></div>
@@ -105,7 +106,7 @@
   const hand = document.getElementById('hand');
   const levelButtons = [...document.querySelectorAll('#levels button')];
 
-  let P, N, levelName, pebbled, moves, won, nodes;
+  let P, N, levelName, pebbled, moves, won, nodes, startedAt, solveMs;
 
   // Spots 0..N snake along one line: rows alternate left-to-right and right-to-left.
   // Spot 0 is permanently pebbled and does not use one of the player's pebbles.
@@ -157,9 +158,16 @@
     if (i === 0 || !pebbled[i - 1]) { flash(nodes[i]); return; }
     if (placing && inHand() === 0) { flash(nodes[i]); flash(hand); return; }
     pebbled[i] = placing;
+    // The clock runs from the first legal move to the pebble landing on the flag.
+    if (moves === 0) startedAt = performance.now();
     moves++;
-    if (placing && i === N) won = true;
+    if (placing && i === N) { won = true; solveMs = performance.now() - startedAt; }
     render();
+  }
+
+  function clock(ms) {
+    const t = Math.round(ms / 100), m = Math.floor(t / 600), sec = ((t % 600) / 10).toFixed(1);
+    return m ? m + ':' + sec.padStart(4, '0') : sec + ' s';
   }
 
   function render() {
@@ -169,6 +177,7 @@
     for (let k = 0; k < P; k++) dots += '<i class="' + (k < left ? '' : 'used') + '"></i>';
     hand.innerHTML = dots + '<span>' + left + ' in hand</span>';
     document.body.classList.toggle('won', won);
+    document.getElementById('time').textContent = won ? clock(solveMs) : '';
     document.getElementById('count').textContent = levelName + ' · ' + moves + ' moves';
   }
 
