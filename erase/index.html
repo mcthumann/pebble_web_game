@@ -7,7 +7,7 @@
 <style>
   :root {
     --ink: #1F2329; --muted: #7A808A; --faint: #D5D9DF;
-    --pebble: #1A1C20; --red: #E31A1C; --green: #009E73; --erase: #D55E00;
+    --pebble: #1A1C20; --red: #E31A1C; --green: #009E73; --erase: #D55E00; --low: #F2B705;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; height: 100%; }
@@ -47,15 +47,48 @@
     font-size: 13px; font-weight: 650; color: #4A5058; white-space: nowrap;
   }
 
-  #stats { display: flex; gap: 8px; margin-bottom: 14px; }
+  #stats { display: flex; gap: 8px; }
   .stat {
     flex: 1; text-align: center; padding: 8px 4px;
     border: 2px solid var(--faint); border-radius: 12px;
   }
   .stat span { display: block; font-size: 13px; font-weight: 600; color: var(--muted); }
   .stat b { display: block; font-size: 26px; line-height: 1.15; font-variant-numeric: tabular-nums; }
-  #costBox.over { background: var(--red); border-color: var(--red); }
-  #costBox.over span, #costBox.over b { color: #fff; }
+  #budgetBox { flex: 1.6; position: relative; transition: background .2s, border-color .2s; }
+  #budgetBox.low { background: var(--low); border-color: var(--low); }
+  #budgetBox.low span { color: var(--ink); }
+  #budgetBox.bad { background: var(--red); border-color: var(--red); }
+  #budgetBox.bad span, #budgetBox.bad b { color: #fff; }
+  /* The amount just spent pops up beside the number, then fades. */
+  #delta {
+    position: absolute; top: 22px; left: calc(50% + 30px);
+    font-size: 17px; font-weight: 700; color: var(--erase); opacity: 0;
+  }
+  #budgetBox.low #delta { color: var(--ink); }
+  #delta.show { animation: spent .9s ease-out; }
+  @keyframes spent { 0% { opacity: 1; transform: none; } 60% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10px); } }
+
+  /* One segment per unit of budget; they empty from the right as it is spent. */
+  #meter { display: flex; gap: 2px; height: 12px; margin-top: 8px; }
+  #meter i { flex: 1; border-radius: 2px; background: var(--pebble); transition: background .25s; }
+  #meter.low i { background: var(--low); }
+  #meter i.spent { background: var(--faint); }
+
+  #goal { display: flex; gap: 8px; margin: 0 0 14px; padding: 0; list-style: none; }
+  #goal li {
+    flex: 1; display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+    border: 2px solid var(--faint); border-radius: 12px;
+    font-size: 15px; font-weight: 600; line-height: 1.2; color: var(--muted);
+  }
+  #goal li::before {
+    content: attr(data-n); flex: none; width: 24px; height: 24px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 14px;
+    border: 2px solid currentColor;
+  }
+  #goal li.now { color: var(--ink); border-color: var(--pebble); }
+  #goal li.ok { color: var(--green); border-color: var(--green); }
+  #goal li.ok::before { content: "\2713"; background: var(--green); border-color: var(--green); color: #fff; }
+  #goal li.urgent { background: var(--pebble); border-color: var(--pebble); color: #fff; }
 
   #result { display: none; text-align: center; color: #fff; margin-bottom: 14px; }
   #result h1 { margin: 0; font-size: 56px; line-height: 1.1; }
@@ -77,6 +110,11 @@
   .node text { font-size: 15px; font-weight: 650; fill: var(--muted); text-anchor: middle; }
   .node.bad text { fill: var(--red); }
   .node.erased text { fill: var(--erase); }
+  /* Flag reached: the pebbles that still have to come off the line pulse. */
+  .node.tidy .ring { stroke: var(--erase); animation: tidy 1.1s ease-in-out infinite; }
+  .node.tidy text { fill: var(--erase); }
+  @keyframes tidy { 50% { stroke-width: 8; } }
+  body.done .node.tidy .ring { stroke: #fff; animation: none; }
 
   #bar { display: flex; align-items: center; justify-content: space-between; }
   #hand { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; font-size: 16px; }
@@ -87,7 +125,7 @@
   }
   #hand i.used { background: transparent; border-color: var(--faint); }
 
-  body.done #info, body.done #stats { display: none; }
+  body.done #info, body.done #budget, body.done #goal { display: none; }
   body.done #result { display: block; }
   body.done #hand { color: #fff; }
   body.done .node text { fill: #fff; }
@@ -108,13 +146,21 @@
     <li>Rules are on the slide.</li>
     <li><b>Tap</b> to place or remove. <span class="price">cost 1</span></li>
     <li><b>Hold</b> to erase. <span class="price">cost &lambda;</span></li>
-    <li><b>Goal:</b> only the flag pebbled, within budget.</li>
+    <li><b>Goal:</b> both steps below, before the budget hits 0.</li>
   </ul>
-  <div id="stats">
-    <div class="stat"><span>Erasure price &lambda;</span><b id="lam"></b></div>
-    <div class="stat"><span>Budget</span><b id="budget"></b></div>
-    <div class="stat" id="costBox"><span>Cost so far</span><b id="cost"></b></div>
+  <div id="budget">
+    <div id="stats">
+      <div class="stat"><span>Erasure price &lambda;</span><b id="lam"></b><span>per hold</span></div>
+      <div class="stat" id="budgetBox" aria-live="polite">
+        <span>Budget left</span><b id="left"></b><span id="note"></span><span id="delta" aria-hidden="true"></span>
+      </div>
+    </div>
+    <div id="meter" aria-hidden="true"></div>
   </div>
+  <ol id="goal">
+    <li id="g1" data-n="1">Reach the flag</li>
+    <li id="g2" data-n="2" aria-live="polite"></li>
+  </ol>
   <div id="result"><h1 id="verdict"></h1><p id="time"></p><p id="summary"></p><p id="detail"></p></div>
   <svg id="board" role="group" aria-label="Pebble line"></svg>
   <div id="bar">
@@ -126,7 +172,9 @@
   // Semi-reversible pebble game. A tap places or removes a pebble on a spot whose
   // predecessor is pebbled (cost 1). Holding a pebble erases it from anywhere
   // (cost lambda). The game ends when the flag is pebbled and every other pebble
-  // is back in hand: green if the cost is within budget, red if it is over.
+  // is back in hand. Every move is paid for out of the budget, which counts down;
+  // a move the player cannot afford is refused, and reaching 0 before the clean
+  // finish ends the game in red.
   // Level settings are on the buttons above. Medium sits on the memory wall
   // (flag = 2^(P-1)): its budget is the optimum, one erasure at the midpoint.
   // Hard's budget is also the optimum: every cheapest solution erases 4, 7, 10, 13.
@@ -138,7 +186,7 @@
   const levelButtons = [...document.querySelectorAll('#levels button')];
 
   let P, N, LAM, BUDGET, levelName, PER_ROW, DX, R;
-  let pebbled, moves, erasures, done, nodes, startedAt, solveMs;
+  let pebbled, moves, erasures, done, lost, nodes, startedAt, solveMs;
   let holdTimer = null, suppressClick = false;
 
   // Spots 0..N snake along one line: rows alternate left-to-right and right-to-left.
@@ -182,6 +230,9 @@
 
   function inHand() { return P - pebbled.slice(1).filter(Boolean).length; }
   function cost() { return moves + LAM * erasures; }
+  function left() { return BUDGET - cost(); }
+  // Pebbles on the line other than the flag's: these must be picked up to finish.
+  function stray() { return pebbled.slice(1, N).filter(Boolean).length; }
 
   function flash(el, cls) {
     el.classList.add(cls);
@@ -193,9 +244,15 @@
     if (moves + erasures === 0) startedAt = performance.now();
   }
 
-  // Finished once the flag is pebbled and it is the only pebble on the line (spot 0 aside).
-  function finishIfClean() {
-    if (pebbled[N] && inHand() === P - 1) { done = true; solveMs = performance.now() - startedAt; }
+  // Pay for the move just made. Solved once the flag is pebbled and it is the only
+  // pebble on the line (spot 0 aside); otherwise an empty budget ends the game.
+  function settle(spent) {
+    const d = $('delta');
+    d.textContent = '\u2212' + spent;
+    d.classList.remove('show'); void d.offsetWidth; d.classList.add('show');
+    if (pebbled[N] && stray() === 0) done = true;
+    else if (left() <= 0) done = lost = true;
+    if (done) solveMs = performance.now() - startedAt;
   }
 
   // Tap: the reversible move.
@@ -207,7 +264,7 @@
     act();
     pebbled[i] = placing;
     moves++;
-    finishIfClean();
+    settle(1);
     render();
   }
 
@@ -218,11 +275,12 @@
     if (done || i === 0 || !pebbled[i]) return;
     holdTimer = setTimeout(() => {
       suppressClick = true;
+      if (left() < LAM) { flash(nodes[i], 'bad'); flash($('budgetBox'), 'bad'); return; }
       act();
       pebbled[i] = false;
       erasures++;
       flash(nodes[i], 'erased');
-      finishIfClean();
+      settle(LAM);
       render();
     }, HOLD_MS);
   }
@@ -234,22 +292,42 @@
   }
 
   function render() {
-    for (let i = 0; i <= N; i++) nodes[i].classList.toggle('on', pebbled[i]);
-    const left = inHand(), c = cost(), over = c > BUDGET;
+    const flagged = pebbled[N], extra = stray();
+    for (let i = 0; i <= N; i++) {
+      nodes[i].classList.toggle('on', pebbled[i]);
+      nodes[i].classList.toggle('tidy', flagged && i > 0 && i < N && pebbled[i]);
+    }
+    const held = inHand(), c = cost(), rest = left();
     let dots = '';
-    for (let k = 0; k < P; k++) dots += '<i class="' + (k < left ? '' : 'used') + '"></i>';
-    hand.innerHTML = dots + '<span>' + left + ' in hand</span>';
-    $('cost').textContent = c;
-    $('costBox').classList.toggle('over', over);
+    for (let k = 0; k < P; k++) dots += '<i class="' + (k < held ? '' : 'used') + '"></i>';
+    hand.innerHTML = dots + '<span>' + held + ' in hand</span>';
+
+    // Budget: the number and the meter count down; amber once an erasure is the most it can buy.
+    const low = rest <= LAM;
+    $('left').textContent = rest;
+    $('note').textContent = rest < LAM ? 'of ' + BUDGET + ' · too little to erase'
+                          : low ? 'of ' + BUDGET + ' · running low' : 'of ' + BUDGET;
+    $('budgetBox').classList.toggle('low', low);
+    $('meter').classList.toggle('low', low);
+    [...$('meter').children].forEach((seg, k) => seg.classList.toggle('spent', k >= rest));
+
+    // Goal: two steps, ticked off live. Step 2 takes over once the flag is pebbled.
+    const pebbles = extra === 1 ? ' pebble' : ' pebbles';
+    $('g1').className = flagged ? 'ok' : 'now';
+    $('g2').className = flagged ? 'urgent' : '';
+    $('g2').textContent = flagged ? 'Now pick up the other ' + extra + pebbles : 'Then pick up every other pebble';
+
     document.body.classList.toggle('done', done);
-    document.body.classList.toggle('won', done && !over);
-    document.body.classList.toggle('lost', done && over);
+    document.body.classList.toggle('won', done && !lost);
+    document.body.classList.toggle('lost', lost);
     if (done) {
-      $('verdict').textContent = over ? 'Over budget' : 'Solved';
-      $('time').textContent = clock(solveMs);
-      $('summary').textContent = levelName + ' · cost ' + c + ' of ' + BUDGET;
+      $('verdict').textContent = lost ? 'Out of budget' : 'Solved';
+      $('time').textContent = lost ? '' : clock(solveMs);
+      $('summary').textContent = lost
+        ? (flagged ? 'Flag reached, but ' + extra + pebbles + ' still on the line' : 'The flag was not reached')
+        : levelName + ' · ' + rest + ' of ' + BUDGET + ' budget left';
       $('detail').textContent = moves + ' moves + ' + erasures + (erasures === 1 ? ' erasure' : ' erasures') +
-        ' × ' + LAM;
+        ' × ' + LAM + ' = ' + c;
     }
   }
 
@@ -259,7 +337,8 @@
     pebbled[0] = true;
     moves = 0;
     erasures = 0;
-    done = false;
+    done = lost = false;
+    $('delta').classList.remove('show');
     render();
   }
 
@@ -274,7 +353,7 @@
     levelName = btn.textContent;
     levelButtons.forEach(b => b.classList.toggle('sel', b === btn));
     $('lam').textContent = LAM;
-    $('budget').textContent = BUDGET;
+    $('meter').innerHTML = '<i></i>'.repeat(BUDGET);
     build();
     reset();
   }
