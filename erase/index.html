@@ -10,7 +10,7 @@
     --pebble: #1A1C20; --red: #E31A1C; --green: #009E73; --erase: #D55E00; --low: #F2B705;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; height: 100%; }
+  html, body { margin: 0; height: 100%; overscroll-behavior: none; }
   body {
     background: #fff; color: var(--ink);
     font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
@@ -358,8 +358,16 @@
     reset();
   }
 
-  levelButtons.forEach(b => b.addEventListener('click', () => setLevel(b)));
-  $('reset').addEventListener('click', reset);
+  // A press that starts on the board must never count as a Reset or level tap.
+  // Finishing with a hold swaps the rules for the result while the finger is
+  // still down, which moves the board up and leaves Reset just under the finger;
+  // phones then deliver the release to Reset and wipe the green screen.
+  let pressOnBoard = false;
+  document.addEventListener('pointerdown', e => { pressOnBoard = board.contains(e.target); }, true);
+  const buttonTap = fn => e => { if (pressOnBoard && e.detail !== 0) return; fn(); };
+
+  levelButtons.forEach(b => b.addEventListener('click', buttonTap(() => setLevel(b))));
+  $('reset').addEventListener('click', buttonTap(reset));
   board.addEventListener('contextmenu', e => e.preventDefault());
   setLevel(levelButtons[0]);
 </script>
