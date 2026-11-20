@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Pebble Game: Clocked</title>
+<style>
+  :root {
+    --ink: #1F2329; --muted: #7A808A; --faint: #D5D9DF;
+    --pebble: #1A1C20; --red: #E31A1C; --green: #009E73; --warn: #D55E00;
+    --tick: #2367C9; --tick-bg: #DDEAFB;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overscroll-behavior: none; }
+  body {
+    background: #fff; color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    touch-action: manipulation; user-select: none; -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  main {
+    max-width: 480px; min-height: 100%; margin: 0 auto; padding: 20px 16px 24px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  button {
+    font: inherit; font-size: 16px; font-weight: 600; padding: 10px 18px;
+    background: #fff; color: var(--ink); border: 2px solid var(--faint); border-radius: 10px;
+  }
+
+  /* Menu linking the games; the current one is underlined. */
+  #games { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px 4px; margin-top: -6px; font-size: 14px; font-weight: 650; }
+  #games a {
+    flex: 1; text-align: center; padding: 6px 0 7px; text-decoration: none;
+    color: var(--muted); border-bottom: 2px solid var(--faint);
+  }
+  #games a[aria-current] { color: var(--ink); border-bottom: 3px solid var(--pebble); padding-bottom: 6px; }
+  body.won #games a { color: rgba(255,255,255,.8); border-bottom-color: rgba(255,255,255,.45); }
+  body.won #games a[aria-current] { color: #fff; border-bottom-color: #fff; }
+
+  #levels { display: flex; gap: 8px; }
+  #levels button { flex: 1; padding: 10px 0; }
+  #levels button.sel { background: var(--pebble); border-color: var(--pebble); color: #fff; }
+
+  #info {
+    margin: 0; list-style: none;
+    background: #F4F5F7; border: 2px solid var(--faint); border-radius: 12px;
+    padding: 12px 14px; font-size: 16px; line-height: 1.35;
+  }
+  #info li { position: relative; padding-left: 18px; }
+  #info li + li { margin-top: 7px; }
+  #info li::before {
+    content: ""; position: absolute; left: 2px; top: .5em;
+    width: 7px; height: 7px; border-radius: 50%; background: var(--pebble);
+  }
+  #info .t { color: var(--tick); font-weight: 700; }
+
+  #stats { display: flex; gap: 8px; }
+  .stat {
+    flex: 1; text-align: center; padding: 8px 4px;
+    border: 2px solid var(--faint); border-radius: 12px;
+  }
+  .stat span { display: block; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .stat b { display: block; font-size: 26px; line-height: 1.15; font-variant-numeric: tabular-nums; }
+  #ticksBox.past { border-color: var(--warn); }
+  #ticksBox.past b { color: var(--warn); }
+
+  #goal { display: flex; gap: 8px; margin: 0 0 6px; padding: 0; list-style: none; }
+  #goal li {
+    flex: 1; display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+    border: 2px solid var(--faint); border-radius: 12px;
+    font-size: 15px; font-weight: 600; line-height: 1.2; color: var(--muted);
+  }
+  #goal li::before {
+    content: attr(data-n); flex: none; width: 24px; height: 24px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 14px;
+    border: 2px solid currentColor;
+  }
+  #goal li.now { color: var(--ink); border-color: var(--pebble); }
+  #goal li.ok { color: var(--green); border-color: var(--green); }
+  #goal li.ok::before { content: "\2713"; background: var(--green); border-color: var(--green); color: #fff; }
+  #goal li.urgent { background: var(--pebble); border-color: var(--pebble); color: #fff; }
+
+  #result { display: none; text-align: center; color: #fff; }
+  #result h1 { margin: 0; font-size: 56px; line-height: 1.1; }
+  #result p { margin: 4px 0 0; font-size: 22px; }
+  #result #time { font-size: 36px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  #board { display: block; width: 100%; height: auto; }
+  #track { fill: none; stroke: var(--pebble); stroke-width: 9; stroke-linecap: round; }
+  .node { cursor: pointer; }
+  .node .hit { fill: transparent; }
+  .node .ring { fill: #fff; stroke: var(--pebble); stroke-width: 4; }
+  .node .dot { fill: var(--pebble); display: none; }
+  .node .qdot { fill: none; stroke: var(--tick); stroke-width: 3; stroke-dasharray: 4 3; display: none; }
+  .node.on .dot { display: block; }
+  .node.on .flag { display: none; }
+  .node.goal .ring { stroke-dasharray: 7 5; }
+  .node.fixed .ring { fill: var(--pebble); }
+  /* Queued for this tick: blue outline; a pebble about to land is a dashed
+     circle, a pebble about to lift is faded. */
+  .node.queued .ring { stroke: var(--tick); stroke-width: 5; fill: var(--tick-bg); }
+  .node.queued.on .dot { opacity: .3; }
+  .node.queued:not(.on) .qdot { display: block; }
+  .node.queued:not(.on) .flag { display: none; }
+  .node.bad .ring { fill: var(--red); stroke: var(--red); }
+  .node text { font-size: 15px; font-weight: 650; fill: var(--muted); text-anchor: middle; }
+  .node.bad text { fill: var(--red); }
+  .node.queued text { fill: var(--tick); }
+  .node.tidy:not(.queued) .ring { stroke: var(--warn); animation: tidy 1.1s ease-in-out infinite; }
+  @keyframes tidy { 50% { stroke-width: 8; } }
+
+  #tickBtn {
+    width: 100%; padding: 13px 0; font-size: 17px;
+    background: var(--tick); border-color: var(--tick); color: #fff;
+  }
+  #tickBtn:disabled { background: #fff; border-color: var(--faint); color: var(--muted); }
+  #tickBtn.over { background: #fff; border-color: var(--warn); color: var(--warn); }
+  #tickBtn.bad { animation: shake .35s; }
+  @keyframes shake { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
+
+  #bar { display: flex; align-items: center; justify-content: space-between; }
+  #hand { display: flex; align-items: center; gap: 7px; padding: 6px 10px; border-radius: 10px; font-size: 16px; }
+  #hand.bad { background: var(--red); color: #fff; }
+  #hand i {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--pebble); border: 2px solid var(--pebble);
+  }
+  #hand i.used { background: transparent; border-color: var(--faint); }
+
+  body.won { background: var(--green); }
+  body.won #info, body.won #stats, body.won #goal, body.won #tickBtn { display: none; }
+  body.won #result { display: block; }
+  body.won #hand { color: #fff; }
+  body.won .node text { fill: #fff; }
+  body.won button { border-color: #fff; }
+  body.won #levels button.sel { border-color: var(--pebble); }
+  /* Stars, sharing and feel (the same block on every game page). */
+  #levels .mark { margin-left: 5px; font-size: 14px; }
+  #levels .mark.star { color: #E0A800; }
+  #levels .mark.tick { color: var(--green); }
+  #levels button.sel .mark.tick { color: #8FE0C4; }
+  #games a { position: relative; }
+  #games .stars { position: absolute; top: 0; right: 1px; font-size: 10px; font-weight: 700; color: #C99700; }
+  body.won #games .stars, body.done #games .stars { color: #FFE08A; }
+  main #best { margin-top: 6px; font-size: 17px; font-weight: 650; }
+  main #share {
+    margin-top: 12px; padding: 7px 22px; font-size: 15px;
+    background: transparent; color: #fff; border: 2px solid #fff; border-radius: 10px;
+  }
+  body.lost #share, body.lost #best { display: none; }
+  .confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+  @media (prefers-reduced-motion: no-preference) {
+    @keyframes pop { 0% { transform: scale(.3); } 65% { transform: scale(1.15); } 100% { transform: scale(1); } }
+    .node.on:not(.fixed) .dot { transform-box: fill-box; transform-origin: center; animation: pop .22s ease-out; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <nav id="games" aria-label="Pebble games">
+    <a href="../">Reversible</a>
+    <a href="../erase/">Erasure</a>
+    <a href="../prices/">Prices</a>
+    <a href="../pits/">Pits</a>
+    <a href="../spooky/">Spooky</a>
+    <a href="../dag/">DAG</a>
+    <a href="../redblue/">Red-blue</a>
+    <a href="./" aria-current="page">Clocked</a>
+  </nav>
+  <div id="levels">
+    <button type="button" data-p="3" data-n="4" data-opt="8" data-row="5">Easy</button>
+    <button type="button" data-p="4" data-n="8" data-opt="20" data-row="5">Medium</button>
+    <button type="button" data-p="5" data-n="13" data-opt="33" data-row="5">Hard</button>
+  </div>
+  <ul id="info">
+    <li>Tap spots to <span class="t">queue</span> moves, then press <b>Tick</b> to make them all at once.</li>
+    <li>A spot can change only when the spot before it has a pebble that stays put this tick.</li>
+    <li>A pebble you lift is back in your hand only after the tick.</li>
+    <li><b>Goal:</b> both steps below, in as few ticks as you can.</li>
+  </ul>
+  <div id="stats">
+    <div class="stat" id="ticksBox"><span>Ticks</span><b id="ticks"></b></div>
+    <div class="stat"><span>Optimal</span><b id="opt"></b></div>
+    <div class="stat"><span>Pebbles</span><b id="pCount"></b></div>
+  </div>
+  <ol id="goal">
+    <li id="g1" data-n="1">Reach the flag</li>
+    <li id="g2" data-n="2" aria-live="polite"></li>
+  </ol>
+  <div id="result"><h1 id="verdict"></h1><p id="time"></p><p id="summary"></p><p id="best"></p><button id="share" type="button">Share</button></div>
+  <svg id="board" role="group" aria-label="Pebble line"></svg>
+  <button id="tickBtn" type="button" disabled></button>
+  <div id="bar">
+    <div id="hand"></div>
+    <button id="reset" type="button">Reset</button>
+  </div>
+</main>
+<script>
+  // Clocked (parallel) reversible pebbling on a line. Each tick toggles any set
+  // of spots at once; a spot may change only if the spot before it is pebbled
+  // both before and after the tick, so two neighbouring spots never change in
+  // the same tick. Memory is counted over the whole tick: a cell being cleared
+  // stays busy until the tick ends, so it cannot be refilled in the same tick
+  // (in clocked adiabatic logic both cells hold charge during the transition).
+  // So the pebbles down before the tick plus those being placed must be at most
+  // P (spot 0 is a permanent free input). The game ends when only the flag
+  // holds a pebble. Score: ticks. data-opt is the fewest ticks, by
+  // breadth-first search over pebble sets: Easy 8, Medium 20, Hard 33. With
+  // enough pebbles a line of N spots takes 2N - 1 ticks (7, 15, 25 here).
+  const X0 = 40, SPAN = 225, Y0 = 40, DY = 84;
+  const SVG = 'http://www.w3.org/2000/svg';
+  const $ = id => document.getElementById(id);
+  const board = $('board'), hand = $('hand'), tickBtn = $('tickBtn');
+  const levelButtons = [...document.querySelectorAll('#levels button')];
+
+  // ---------- Stars, feel and sharing (the same block on every game page) ----------
+  // Progress is kept in this browser only: for each level, the best score and
+  // that level's optimum, so a star means best <= optimum (lower is better).
+  const KIT = { game: 'clocked', title: 'Clocked', unit: 'ticks', path: 'clocked/' };
+  const kit = (() => {
+    const KEY = 'pebble-games-v1', BASE = 'https://mcthumann.github.io/pebble_web_game/';
+    const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const el = id => document.getElementById(id);
+    let data = {}, shareText = '', lastBuzz = 0;
+    try { data = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) {}
+    const save = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {} };
+    const starred = r => !!r && r.best <= r.opt;
+
+    // Level buttons get a check once solved and a star once solved optimally;
+    // each menu tab shows how many stars that game has.
+    function marks() {
+      document.querySelectorAll('#levels button').forEach(b => {
+        const r = (data[KIT.game] || {})[b.dataset.name];
+        b.innerHTML = b.dataset.name + (!r ? '' : starred(r)
+          ? '<span class="mark star" aria-label="optimal">★</span>'
+          : '<span class="mark tick" aria-label="solved">✓</span>');
+      });
+      document.querySelectorAll('#games a').forEach(a => {
+        const game = a.hasAttribute('aria-current') ? KIT.game
+          : a.getAttribute('href').replace(/\.\.?\//g, '').replace(/\/$/, '') || 'reversible';
+        const n = Object.values(data[game] || {}).filter(starred).length;
+        let s = a.querySelector('.stars');
+        if (!n) { if (s) s.remove(); return; }
+        if (!s) { s = document.createElement('span'); s.className = 'stars'; a.appendChild(s); }
+        s.textContent = '★' + n;
+      });
+    }
+
+    function buzz(pattern) {
+      const now = performance.now();
+      if (now - lastBuzz < 120) return;
+      lastBuzz = now;
+      try { if (navigator.vibrate) navigator.vibrate(pattern || 30); } catch (e) {}
+    }
+
+    // A short, light confetti burst, only for optimal finishes.
+    function confetti() {
+      if (calm) return;
+      const c = document.createElement('canvas'), ctx = c.getContext('2d'), dpr = window.devicePixelRatio || 1;
+      const W = innerWidth, H = innerHeight;
+      c.className = 'confetti'; c.width = W * dpr; c.height = H * dpr;
+      document.body.appendChild(c); ctx.scale(dpr, dpr);
+      const colors = ['#FFFFFF', '#F5C542', '#FFE8A3', '#BFF0DD'];
+      const bits = Array.from({ length: 70 }, () => ({
+        x: W / 2 + (Math.random() - .5) * 140, y: H * .26,
+        vx: (Math.random() - .5) * 9, vy: -3 - Math.random() * 8,
+        a: Math.random() * 6.3, va: (Math.random() - .5) * .3,
+        w: 5 + Math.random() * 4, h: 8 + Math.random() * 6,
+        c: colors[Math.floor(Math.random() * colors.length)],
+      }));
+      const t0 = performance.now();
+      (function frame(t) {
+        const age = (t - t0) / 1600;
+        ctx.clearRect(0, 0, W, H);
+        if (age >= 1) { c.remove(); return; }
+        ctx.globalAlpha = Math.min(1, (1 - age) * 2.5);
+        for (const b of bits) {
+          b.vy += .28; b.vx *= .99; b.x += b.vx; b.y += b.vy; b.a += b.va;
+          ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.a);
+          ctx.fillStyle = b.c; ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h); ctx.restore();
+        }
+        requestAnimationFrame(frame);
+      })(t0);
+    }
+
+    // A finished run: save it, note a new star or best, celebrate, and get the
+    // share line ready. Pass { record: false } for levels that should not count.
+    function finish(level, score, opt, time, opts = {}) {
+      const optimal = score <= opt;
+      let line = '';
+      if (opts.record !== false) {
+        const g = data[KIT.game] = data[KIT.game] || {};
+        const old = g[level];
+        g[level] = { best: old ? Math.min(old.best, score) : score, opt };
+        save();
+        marks();
+        if (optimal && !starred(old)) line = 'New star ★';
+        else if (!optimal && old && score < old.best) line = 'New best';
+        else if (!optimal && old) line = 'Your best: ' + (KIT.unit === 'cost' ? 'cost ' : '') + old.best;
+      }
+      el('best').textContent = line;
+      const amount = KIT.unit === 'cost' ? 'cost ' + score : score + ' ' + KIT.unit;
+      shareText = (optimal ? '★ ' : '') + 'Pebble Game · ' + KIT.title + ' ' + level + ' · ' + amount +
+        (optimal ? ', optimal' : ' (optimal ' + opt + ')') + ' in ' + time + '\n' + (opts.url || BASE + KIT.path);
+      el('share').textContent = 'Share';
+      buzz(optimal ? [15, 60, 15, 60, 30] : 25);
+      if (optimal) setTimeout(confetti, 60);
+    }
+
+    function clear() { const b = el('best'); if (b) b.textContent = ''; }
+
+    // Phones get the share sheet; elsewhere the line is copied.
+    async function share() {
+      const btn = el('share');
+      try {
+        if (navigator.share && matchMedia('(pointer: coarse)').matches) { await navigator.share({ text: shareText }); return; }
+        await navigator.clipboard.writeText(shareText);
+        btn.textContent = 'Copied';
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+        const t = document.createElement('textarea');
+        t.value = shareText; document.body.appendChild(t); t.select();
+        let ok = false; try { ok = document.execCommand('copy'); } catch (e2) {}
+        t.remove();
+        btn.textContent = ok ? 'Copied' : 'Copy failed';
+      }
+      setTimeout(() => { btn.textContent = 'Share'; }, 1600);
+    }
+
+    function init() {
+      document.querySelectorAll('#levels button').forEach(b => { b.dataset.name = b.textContent.trim(); });
+      el('share').addEventListener('click', share);
+      marks();
+    }
+    return { init, finish, clear, buzz, text: () => shareText };
+  })();
+
+  let P, N, OPT, levelName, PER_ROW, DX, R;
+  let pebbled, queued, ticks, won, nodes, startedAt, solveMs;
+
+  // Spots 0..N snake along one line: rows alternate left-to-right and right-to-left.
+  function build() {
+    const rows = Math.ceil((N + 1) / PER_ROW);
+    const xOf = i => { const r = Math.floor(i / PER_ROW), k = i % PER_ROW; return X0 + DX * (r % 2 ? PER_ROW - 1 - k : k); };
+    let d = 'M' + X0 + ' ' + Y0;
+    for (let r = 0; r < rows; r++) {
+      d += 'H' + xOf(Math.min(N, PER_ROW * r + PER_ROW - 1));
+      if (r < rows - 1) d += 'A' + DY / 2 + ' ' + DY / 2 + ' 0 0 ' + (r % 2 ? 0 : 1) + ' ' +
+                             xOf(PER_ROW * (r + 1)) + ' ' + (Y0 + DY * (r + 1));
+    }
+    board.setAttribute('viewBox', '-18 6 340 ' + rows * DY);
+    board.innerHTML = '<path id="track" d="' + d + '"/>';
+    nodes = [];
+    for (let i = 0; i <= N; i++) {
+      const x = xOf(i), y = Y0 + DY * Math.floor(i / PER_ROW);
+      const g = document.createElementNS(SVG, 'g');
+      g.setAttribute('class', i === 0 ? 'node fixed' : i === N ? 'node goal' : 'node');
+      g.setAttribute('role', 'button');
+      g.setAttribute('aria-label', 'Spot ' + i);
+      g.innerHTML =
+        '<rect class="hit" x="' + (x - DX / 2) + '" y="' + (y - 30) + '" width="' + DX + '" height="76"/>' +
+        '<circle class="ring" cx="' + x + '" cy="' + y + '" r="' + R + '"/>' +
+        (i === N
+          ? '<g class="flag" transform="translate(' + (x - 7) + ' ' + (y - 12) + ')">' +
+            '<path d="M2 1v22" stroke="#1F2329" stroke-width="2.6" stroke-linecap="round" fill="none"/>' +
+            '<path d="M3.5 2h13l-3.5 4.5 3.5 4.5h-13z" fill="#1F2329"/></g>'
+          : '') +
+        '<circle class="dot" cx="' + x + '" cy="' + y + '" r="' + (R - 9) + '"/>' +
+        '<circle class="qdot" cx="' + x + '" cy="' + y + '" r="' + (R - 10) + '"/>' +
+        '<text x="' + x + '" y="' + (y + R + 19) + '">' + i + '</text>';
+      g.addEventListener('click', () => tap(i));
+      board.appendChild(g);
+      nodes.push(g);
+    }
+  }
+
+  function count() { let c = 0; for (let i = 1; i <= N; i++) if (pebbled[i]) c++; return c; }
+  // Cells in use during the tick: everything already down (pebbles being
+  // lifted stay busy until the tick ends) plus every pebble being placed.
+  function busy() {
+    let c = count();
+    for (let i = 1; i <= N; i++) if (queued[i] && !pebbled[i]) c++;
+    return c;
+  }
+  function queuedCount() { return queued.filter(Boolean).length; }
+  function strayPebbles() { let c = 0; for (let i = 1; i < N; i++) if (pebbled[i]) c++; return c; }
+
+  function flash(el) {
+    kit.buzz();
+    el.classList.add('bad');
+    clearTimeout(el.badTimer);
+    el.badTimer = setTimeout(() => el.classList.remove('bad'), 450);
+  }
+
+  // Tap: queue or unqueue a move for the next tick.
+  function tap(i) {
+    if (won || i === 0) { if (i === 0) flash(nodes[0]); return; }
+    if (queued[i]) { queued[i] = false; render(); return; }
+    // The spot before must be pebbled and stay put; the spot after, if queued,
+    // relies on this one staying put.
+    if (!pebbled[i - 1] || queued[i - 1] || (i < N && queued[i + 1])) { flash(nodes[i]); return; }
+    queued[i] = true;
+    render();
+  }
+
+  // Tick: make every queued move at once.
+  function tick() {
+    if (won || !queuedCount()) return;
+    if (busy() > P) { flash(tickBtn); flash(hand); return; }
+    if (ticks === 0) startedAt = performance.now();
+    for (let i = 1; i <= N; i++) if (queued[i]) { pebbled[i] = !pebbled[i]; queued[i] = false; }
+    ticks++;
+    if (pebbled[N] && strayPebbles() === 0) { won = true; solveMs = performance.now() - startedAt; kit.finish(levelName, ticks, OPT, clock(solveMs)); }
+    render();
+  }
+
+  function clock(ms) {
+    const t = Math.round(ms / 100), m = Math.floor(t / 600), sec = ((t % 600) / 10).toFixed(1);
+    return m ? m + ':' + sec.padStart(4, '0') : sec + ' s';
+  }
+
+  function render() {
+    const flagged = pebbled[N], extra = strayPebbles();
+    for (let i = 1; i <= N; i++) {
+      nodes[i].classList.toggle('on', pebbled[i]);
+      nodes[i].classList.toggle('queued', queued[i]);
+      nodes[i].classList.toggle('tidy', flagged && i < N && pebbled[i]);
+    }
+    // The hand shows what is free for this tick: queued placements are taken,
+    // and lifted pebbles only come back after the tick.
+    const held = Math.max(0, P - busy());
+    let dots = '';
+    for (let k = 0; k < P; k++) dots += '<i class="' + (k < held ? '' : 'used') + '"></i>';
+    hand.innerHTML = dots + '<span>' + held + ' in hand</span>';
+
+    const q = queuedCount(), over = busy() > P;
+    tickBtn.disabled = q === 0;
+    tickBtn.classList.toggle('over', q > 0 && over);
+    tickBtn.textContent = q === 0 ? 'Queue moves, then Tick'
+      : over ? 'Over the memory limit'
+      : 'Tick · ' + q + (q === 1 ? ' move' : ' moves');
+
+    $('ticks').textContent = ticks;
+    $('ticksBox').classList.toggle('past', ticks > OPT);
+    $('g1').className = flagged ? 'ok' : 'now';
+    $('g2').className = flagged ? 'urgent' : '';
+    $('g2').textContent = flagged ? 'Now clear the other ' + extra + (extra === 1 ? ' pebble' : ' pebbles') : 'Then clear every other pebble';
+
+    document.body.classList.toggle('won', won);
+    if (won) {
+      $('verdict').textContent = ticks === OPT ? 'Optimal!' : 'Solved';
+      $('time').textContent = clock(solveMs);
+      $('summary').textContent = levelName + ' · ' + ticks + ' ticks · optimal ' + OPT;
+    }
+  }
+
+  function reset() {
+    kit.clear();
+    pebbled = new Array(N + 1).fill(false);
+    pebbled[0] = true;
+    queued = new Array(N + 1).fill(false);
+    ticks = 0;
+    won = false;
+    render();
+  }
+
+  function setLevel(btn) {
+    P = Number(btn.dataset.p);
+    N = Number(btn.dataset.n);
+    OPT = Number(btn.dataset.opt);
+    PER_ROW = Number(btn.dataset.row);
+    DX = SPAN / (PER_ROW - 1);
+    R = Math.min(23, DX / 2 - 6);
+    levelName = btn.dataset.name;
+    levelButtons.forEach(b => b.classList.toggle('sel', b === btn));
+    $('opt').textContent = OPT;
+    $('pCount').textContent = P;
+    build();
+    reset();
+  }
+
+  // A press that starts on the board must never count as a Reset or level tap:
+  // the winning move swaps the rules for the result and shifts the page under the finger.
+  let pressOnBoard = false;
+  document.addEventListener('pointerdown', e => { pressOnBoard = board.contains(e.target); }, true);
+  const buttonTap = fn => e => { if (pressOnBoard && e.detail !== 0) return; fn(); };
+
+  levelButtons.forEach(b => b.addEventListener('click', buttonTap(() => setLevel(b))));
+  $('reset').addEventListener('click', buttonTap(reset));
+  tickBtn.addEventListener('click', tick);
+  // On a keyboard, Space or Enter ticks.
+  document.addEventListener('keydown', e => {
+    if ((e.key === ' ' || e.key === 'Enter') && !e.target.closest('button, a')) { e.preventDefault(); tick(); }
+  });
+  board.addEventListener('contextmenu', e => e.preventDefault());
+  kit.init();
+  setLevel(levelButtons[0]);
+</script>
+</body>
+</html>

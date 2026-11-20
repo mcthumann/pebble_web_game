@@ -27,7 +27,7 @@
   }
 
   /* Menu linking the four games; the current one is underlined. */
-  #games { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px 4px; margin-top: -6px; font-size: 14px; font-weight: 650; }
+  #games { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px 4px; margin-top: -6px; font-size: 14px; font-weight: 650; }
   #games a {
     flex: 1; text-align: center; padding: 6px 0 7px; text-decoration: none;
     color: var(--muted); border-bottom: 2px solid var(--faint);
@@ -139,6 +139,25 @@
   body.won .node .flag path { fill: #fff; stroke: #fff; }
   body.won button { border-color: #fff; }
   body.won #levels button.sel { border-color: var(--pebble); }
+  /* Stars, sharing and feel (the same block on every game page). */
+  #levels .mark { margin-left: 5px; font-size: 14px; }
+  #levels .mark.star { color: #E0A800; }
+  #levels .mark.tick { color: var(--green); }
+  #levels button.sel .mark.tick { color: #8FE0C4; }
+  #games a { position: relative; }
+  #games .stars { position: absolute; top: -5px; right: 0; font-size: 10px; font-weight: 700; color: #C99700; }
+  body.won #games .stars, body.done #games .stars { color: #FFE08A; }
+  main #best { margin-top: 6px; font-size: 17px; font-weight: 650; }
+  main #share {
+    margin-top: 12px; padding: 7px 22px; font-size: 15px;
+    background: transparent; color: #fff; border: 2px solid #fff; border-radius: 10px;
+  }
+  body.lost #share, body.lost #best { display: none; }
+  .confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+  @media (prefers-reduced-motion: no-preference) {
+    @keyframes pop { 0% { transform: scale(.3); } 65% { transform: scale(1.15); } 100% { transform: scale(1); } }
+    .node.full .pip { transform-box: fill-box; transform-origin: center; animation: pop .22s ease-out; }
+  }
 </style>
 </head>
 <body>
@@ -151,6 +170,7 @@
     <a href="../spooky/">Spooky</a>
     <a href="../dag/">DAG</a>
     <a href="../redblue/">Red-blue</a>
+    <a href="../clocked/">Clocked</a>
   </nav>
   <div id="levels">
     <button type="button" data-p="1,1,2,3,2,4,1">Easy</button>
@@ -175,6 +195,7 @@
   </ol>
   <div id="result">
     <h1 id="verdict"></h1><p id="time"></p><p id="summary"></p>
+    <p id="best"></p><button id="share" type="button">Share</button>
   </div>
   <svg id="board" role="group" aria-label="Line of pits"></svg>
   <div id="bar">
@@ -218,6 +239,128 @@
   const $ = id => document.getElementById(id);
   const board = $('board'), hand = $('hand');
   const levelButtons = [...document.querySelectorAll('#levels button')];
+
+  // ---------- Stars, feel and sharing (the same block on every game page) ----------
+  // Progress is kept in this browser only: for each level, the best score and
+  // that level's optimum, so a star means best <= optimum (lower is better).
+  const KIT = { game: 'pits', title: 'Pits', unit: 'moves', path: 'pits/' };
+  const kit = (() => {
+    const KEY = 'pebble-games-v1', BASE = 'https://mcthumann.github.io/pebble_web_game/';
+    const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const el = id => document.getElementById(id);
+    let data = {}, shareText = '', lastBuzz = 0;
+    try { data = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) {}
+    const save = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {} };
+    const starred = r => !!r && r.best <= r.opt;
+
+    // Level buttons get a check once solved and a star once solved optimally;
+    // each menu tab shows how many stars that game has.
+    function marks() {
+      document.querySelectorAll('#levels button').forEach(b => {
+        const r = (data[KIT.game] || {})[b.dataset.name];
+        b.innerHTML = b.dataset.name + (!r ? '' : starred(r)
+          ? '<span class="mark star" aria-label="optimal">★</span>'
+          : '<span class="mark tick" aria-label="solved">✓</span>');
+      });
+      document.querySelectorAll('#games a').forEach(a => {
+        const game = a.hasAttribute('aria-current') ? KIT.game
+          : a.getAttribute('href').replace(/\.\.?\//g, '').replace(/\/$/, '') || 'reversible';
+        const n = Object.values(data[game] || {}).filter(starred).length;
+        let s = a.querySelector('.stars');
+        if (!n) { if (s) s.remove(); return; }
+        if (!s) { s = document.createElement('span'); s.className = 'stars'; a.appendChild(s); }
+        s.textContent = '★' + n;
+      });
+    }
+
+    function buzz(pattern) {
+      const now = performance.now();
+      if (now - lastBuzz < 120) return;
+      lastBuzz = now;
+      try { if (navigator.vibrate) navigator.vibrate(pattern || 30); } catch (e) {}
+    }
+
+    // A short, light confetti burst, only for optimal finishes.
+    function confetti() {
+      if (calm) return;
+      const c = document.createElement('canvas'), ctx = c.getContext('2d'), dpr = window.devicePixelRatio || 1;
+      const W = innerWidth, H = innerHeight;
+      c.className = 'confetti'; c.width = W * dpr; c.height = H * dpr;
+      document.body.appendChild(c); ctx.scale(dpr, dpr);
+      const colors = ['#FFFFFF', '#F5C542', '#FFE8A3', '#BFF0DD'];
+      const bits = Array.from({ length: 70 }, () => ({
+        x: W / 2 + (Math.random() - .5) * 140, y: H * .26,
+        vx: (Math.random() - .5) * 9, vy: -3 - Math.random() * 8,
+        a: Math.random() * 6.3, va: (Math.random() - .5) * .3,
+        w: 5 + Math.random() * 4, h: 8 + Math.random() * 6,
+        c: colors[Math.floor(Math.random() * colors.length)],
+      }));
+      const t0 = performance.now();
+      (function frame(t) {
+        const age = (t - t0) / 1600;
+        ctx.clearRect(0, 0, W, H);
+        if (age >= 1) { c.remove(); return; }
+        ctx.globalAlpha = Math.min(1, (1 - age) * 2.5);
+        for (const b of bits) {
+          b.vy += .28; b.vx *= .99; b.x += b.vx; b.y += b.vy; b.a += b.va;
+          ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.a);
+          ctx.fillStyle = b.c; ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h); ctx.restore();
+        }
+        requestAnimationFrame(frame);
+      })(t0);
+    }
+
+    // A finished run: save it, note a new star or best, celebrate, and get the
+    // share line ready. Pass { record: false } for levels that should not count.
+    function finish(level, score, opt, time, opts = {}) {
+      const optimal = score <= opt;
+      let line = '';
+      if (opts.record !== false) {
+        const g = data[KIT.game] = data[KIT.game] || {};
+        const old = g[level];
+        g[level] = { best: old ? Math.min(old.best, score) : score, opt };
+        save();
+        marks();
+        if (optimal && !starred(old)) line = 'New star ★';
+        else if (!optimal && old && score < old.best) line = 'New best';
+        else if (!optimal && old) line = 'Your best: ' + (KIT.unit === 'cost' ? 'cost ' : '') + old.best;
+      }
+      el('best').textContent = line;
+      const amount = KIT.unit === 'cost' ? 'cost ' + score : score + ' ' + KIT.unit;
+      shareText = (optimal ? '★ ' : '') + 'Pebble Game · ' + KIT.title + ' ' + level + ' · ' + amount +
+        (optimal ? ', optimal' : ' (optimal ' + opt + ')') + ' in ' + time + '\n' + (opts.url || BASE + KIT.path);
+      el('share').textContent = 'Share';
+      buzz(optimal ? [15, 60, 15, 60, 30] : 25);
+      if (optimal) setTimeout(confetti, 60);
+    }
+
+    function clear() { const b = el('best'); if (b) b.textContent = ''; }
+
+    // Phones get the share sheet; elsewhere the line is copied.
+    async function share() {
+      const btn = el('share');
+      try {
+        if (navigator.share && matchMedia('(pointer: coarse)').matches) { await navigator.share({ text: shareText }); return; }
+        await navigator.clipboard.writeText(shareText);
+        btn.textContent = 'Copied';
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+        const t = document.createElement('textarea');
+        t.value = shareText; document.body.appendChild(t); t.select();
+        let ok = false; try { ok = document.execCommand('copy'); } catch (e2) {}
+        t.remove();
+        btn.textContent = ok ? 'Copied' : 'Copy failed';
+      }
+      setTimeout(() => { btn.textContent = 'Share'; }, 1600);
+    }
+
+    function init() {
+      document.querySelectorAll('#levels button').forEach(b => { b.dataset.name = b.textContent.trim(); });
+      el('share').addEventListener('click', share);
+      marks();
+    }
+    return { init, finish, clear, buzz, text: () => shareText };
+  })();
 
   let p, N, M, MMIN, OPT, levelName, PER_ROW, DX, R;
   let full, moves, won, nodes, startedAt, solveMs;
@@ -309,6 +452,7 @@
   function stray() { let c = 0; for (let k = 1; k < N; k++) if (full[k]) c++; return c; }
 
   function flash(el) {
+    kit.buzz();
     el.classList.add('bad');
     clearTimeout(el.badTimer);
     el.badTimer = setTimeout(() => el.classList.remove('bad'), 450);
@@ -321,7 +465,11 @@
     if (moves === 0) startedAt = performance.now();
     full[i] = !full[i];
     moves++;
-    if (full[N] && stray() === 0) { won = true; solveMs = performance.now() - startedAt; }
+    if (full[N] && stray() === 0) { won = true; solveMs = performance.now() - startedAt;
+      // Custom levels can be shared but do not earn stars.
+      const custom = levelName === 'Custom';
+      kit.finish(levelName, moves, OPT, clock(solveMs), { record: !custom,
+        url: custom ? SHARE_BASE + '?p=' + p.slice(1).join(',') + (M === MMIN ? '' : '&m=' + M) : undefined }); }
     render();
   }
 
@@ -362,6 +510,7 @@
   }
 
   function reset() {
+    kit.clear();
     full = new Array(N + 1).fill(false);
     full[0] = true;
     moves = 0;
@@ -397,7 +546,7 @@
   function setLevel(btn) {
     levelButtons.forEach(b => b.classList.toggle('sel', b === btn));
     if (location.search) setAddress('');
-    load(btn.dataset.p.split(',').map(Number), null, btn.textContent);
+    load(btn.dataset.p.split(',').map(Number), null, btn.dataset.name);
   }
 
   // Custom level from the form or the address: returns an error message or ''.
@@ -440,6 +589,7 @@
   $('reset').addEventListener('click', buttonTap(reset));
   board.addEventListener('contextmenu', e => e.preventDefault());
 
+  kit.init();
   const params = new URLSearchParams(location.search);
   if (params.has('p')) {
     $('sizes').value = params.get('p');
