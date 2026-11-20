@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pebble Games: all games</title>
+<meta name="description" content="Eight puzzles about memory, time and energy in computing, and why each one matters.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Pebble Games">
+<meta property="og:title" content="Pebble Games: all eight games">
+<meta property="og:description" content="Eight puzzles about memory, time and energy in computing, and why each one matters.">
+<meta property="og:url" content="https://mcthumann.github.io/pebble_web_game/games/">
+<meta property="og:image" content="https://mcthumann.github.io/pebble_web_game/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pebble Games: eight puzzles about memory, time and energy">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  :root { --ink: #1F2329; --muted: #7A808A; --faint: #D5D9DF; --pebble: #1A1C20; --gold: #E0A800; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: #fff; color: var(--ink); font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; }
+  main { max-width: 480px; margin: 0 auto; padding: 20px 16px 40px; }
+  .kicker { display: block; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  h1 { margin: 0 0 10px; font-size: 30px; line-height: 1.15; }
+  .lead { margin: 0; font-size: 17px; line-height: 1.45; color: #4A5058; }
+  .lead a { color: inherit; font-weight: 650; }
+  section { padding: 16px 0; border-top: 2px solid var(--faint); }
+  section:first-of-type { margin-top: 18px; }
+  h2 { display: flex; align-items: baseline; justify-content: space-between; margin: 0 0 6px; font-size: 19px; }
+  h2 a { color: inherit; text-decoration: none; }
+  /* Stars earned in this browser, one per level solved optimally. */
+  .stars { font-size: 15px; letter-spacing: 2px; color: var(--faint); }
+  .stars b { font-weight: inherit; color: var(--gold); }
+  section p { margin: 0 0 6px; font-size: 16px; line-height: 1.45; }
+  .refs { font-size: 14px; color: var(--muted); }
+  .refs a { color: inherit; }
+  .play { display: inline-block; margin-top: 4px; font-size: 15px; font-weight: 650; color: var(--ink); }
+</style>
+</head>
+<body>
+<main>
+  <span class="kicker">Pebble Games</span>
+  <h1>All games</h1>
+  <p class="lead">A pebble is a value held in memory. Pebble games are a standard way to reason about how memory, time and energy trade off in computation. Each game adds one constraint that matters in real machines. New here? <a href="../">Start with Reversible</a>.</p>
+  <section>
+    <h2><a href="../">Reversible</a><span class="stars" data-game="reversible"></span></h2>
+    <p>Erasing information costs heat. Uncomputing avoids erasure, but needs extra memory, which can be traded for extra time.</p>
+    <p class="refs">Bennett, <i>SIAM J. Comput.</i> 1989 · Knill, <a href="https://arxiv.org/abs/math/9508218">arXiv:math/9508218</a></p>
+    <a class="play" href="../">Play Reversible &rarr;</a>
+  </section>
+  <section>
+    <h2><a href="../erase/">Erasure</a><span class="stars" data-game="erase"></span></h2>
+    <p>At finite speed, reversible steps cost energy too, so erasing a saved state is sometimes the cheaper choice. This game asks when.</p>
+    <p class="refs">Thumann &amp; Soloveichik, <a href="https://arxiv.org/abs/2610.24435">arXiv:2610.24435</a></p>
+    <a class="play" href="../erase/">Play Erasure &rarr;</a>
+  </section>
+  <section>
+    <h2><a href="../prices/">Prices</a><span class="stars" data-game="prices"></span></h2>
+    <p>Real computation steps cost different amounts to run and to erase, so where you erase matters.</p>
+    <a class="play" href="../prices/">Play Prices &rarr;</a>
+  </section>
+  <section>
+    <h2><a href="../pits/">Pits</a><span class="stars" data-game="pits"></span></h2>
+    <p>Saved states come in different sizes. The least memory needed is easy to compute; the fewest moves is an open problem.</p>
+    <a class="play" href="../pits/">Play Pits &rarr;</a>
+  </section>
+  <section>
+    <h2><a href="../spooky/">Spooky</a><span class="stars" data-game="spooky"></span></h2>
+    <p>A quantum computer can measure a qubit away instead of uncomputing it, leaving a phase to fix later. That trades qubits for time.</p>
+    <p class="refs">Gidney, <a href="https://algassert.com/post/1905">blog post</a>, 2019 · Kornerup, Sadun &amp; Soloveichik, <i>Quantum</i> 2025, <a href="https://arxiv.org/abs/2110.08973">arXiv:2110.08973</a></p>
+    <a class="play" href="../spooky/">Play Spooky &rarr;</a>
+  </section>
+  <section>
+    <h2><a href="../dag/">DAG</a><span class="stars" data-game="dag"></span></h2>
+    <p>Real computations branch. Deciding how few pebbles a reversible computation on a general graph needs is PSPACE-complete.</p>
+    <p class="refs">Chan, Lauria, Nordström &amp; Vinyals, FOCS 2015, <a href="https://arxiv.org/abs/2305.19104">arXiv:2305.19104</a></p>
+    <a class="play" href="../dag/">Play DAG &rarr;</a>
+  </section>
+  <section>
+    <h2><a href="../redblue/">Red-blue</a><span class="stars" data-game="redblue"></span></h2>
+    <p>Fast memory is small, so moving data between memory levels, not arithmetic, is often the real cost.</p>
+    <p class="refs">Hong &amp; Kung, STOC 1981</p>
+    <a class="play" href="../redblue/">Play Red-blue &rarr;</a>
+  </section>
+  <section>
+    <h2><a href="../clocked/">Clocked</a><span class="stars" data-game="clocked"></span></h2>
+    <p>Hardware runs many steps in one clock tick, so time is the number of ticks, not moves.</p>
+    <p class="refs">Blocki, Holman &amp; Lee, TCC 2022, <a href="https://arxiv.org/abs/2110.04191">arXiv:2110.04191</a></p>
+    <a class="play" href="../clocked/">Play Clocked &rarr;</a>
+  </section>
+</main>
+<script>
+  // Stars come from the progress the games save in this browser: a level
+  // counts once its best score reaches that level's optimum. Each game has
+  // three levels.
+  let data = {};
+  try { data = JSON.parse(localStorage.getItem('pebble-games-v1')) || {}; } catch (e) {}
+  document.querySelectorAll('.stars').forEach(el => {
+    const n = Object.values(data[el.dataset.game] || {}).filter(r => r && r.best <= r.opt).length;
+    el.innerHTML = '<b>' + '★'.repeat(n) + '</b>' + '★'.repeat(Math.max(0, 3 - n));
+    el.setAttribute('aria-label', n + ' of 3 levels solved optimally');
+  });
+</script>
+</body>
+</html>

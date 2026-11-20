@@ -38,15 +38,6 @@
     background: #fff; color: var(--ink); border: 2px solid var(--faint); border-radius: 10px;
   }
 
-  /* Menu linking the games; the current one is underlined. */
-  #games { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px 4px; margin-top: -6px; font-size: 14px; font-weight: 650; }
-  #games a {
-    flex: 1; text-align: center; padding: 6px 0 7px; text-decoration: none;
-    color: var(--muted); border-bottom: 2px solid var(--faint);
-  }
-  #games a[aria-current] { color: var(--ink); border-bottom: 3px solid var(--pebble); padding-bottom: 6px; }
-  body.won #games a { color: rgba(255,255,255,.8); border-bottom-color: rgba(255,255,255,.45); }
-  body.won #games a[aria-current] { color: #fff; border-bottom-color: #fff; }
 
   #levels { display: flex; gap: 8px; }
   #levels button { flex: 1; padding: 10px 0; }
@@ -137,9 +128,6 @@
   #levels .mark.star { color: #E0A800; }
   #levels .mark.tick { color: var(--green); }
   #levels button.sel .mark.tick { color: #8FE0C4; }
-  #games a { position: relative; }
-  #games .stars { position: absolute; top: -5px; right: 0; font-size: 10px; font-weight: 700; color: #C99700; }
-  body.won #games .stars, body.done #games .stars { color: #FFE08A; }
   main #best { margin-top: 6px; font-size: 17px; font-weight: 650; }
   main #share {
     margin-top: 12px; padding: 7px 22px; font-size: 15px;
@@ -158,20 +146,33 @@
   #about .refs { font-size: 14px; color: var(--muted); }
   #about a { color: inherit; }
   body.won #about, body.done #about { display: none; }
+  /* Header: the game's name and one way out to the list of all games. */
+  #head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: -4px; }
+  #head .kicker { display: block; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  #head h1 { margin: 0; font-size: 22px; line-height: 1.2; color: var(--ink); }
+  #head a {
+    flex: none; padding: 7px 14px; font-size: 15px; font-weight: 650; text-decoration: none;
+    color: var(--ink); border: 2px solid var(--faint); border-radius: 10px;
+  }
+  body.won #head .kicker, body.done #head .kicker { color: rgba(255,255,255,.8); }
+  body.won #head h1, body.done #head h1 { color: #fff; }
+  body.won #head a, body.done #head a { color: #fff; border-color: #fff; }
+  /* Finish screen: share the result, or move on to the next game. */
+  main .actions { display: flex; justify-content: center; gap: 10px; margin-top: 12px; }
+  main .actions #share { margin-top: 0; }
+  main #next {
+    padding: 7px 18px; font-size: 15px; font-weight: 650; text-decoration: none;
+    background: #fff; color: var(--green); border: 2px solid #fff; border-radius: 10px;
+  }
+  body.lost #next { display: none; }
 </style>
 </head>
 <body>
 <main>
-  <nav id="games" aria-label="Pebble games">
-    <a href="../">Reversible</a>
-    <a href="../erase/">Erasure</a>
-    <a href="../prices/">Prices</a>
-    <a href="../pits/">Pits</a>
-    <a href="../spooky/">Spooky</a>
-    <a href="../dag/">DAG</a>
-    <a href="./" aria-current="page">Red-blue</a>
-    <a href="../clocked/">Clocked</a>
-  </nav>
+  <header id="head">
+    <div><span class="kicker">Pebble Games</span><h1>Red-blue</h1></div>
+    <a href="../games/">Games</a>
+  </header>
   <div id="levels">
     <button type="button" data-level="pyramid" data-s="4" data-opt="7">Easy</button>
     <button type="button" data-level="butterfly" data-s="4" data-opt="11">Medium</button>
@@ -189,7 +190,7 @@
     <div class="stat"><span>Red pebbles</span><b id="sCount"></b></div>
   </div>
   <p id="goalLine" aria-live="polite"></p>
-  <div id="result"><h1 id="verdict"></h1><p id="time"></p><p id="summary"></p><p id="best"></p><button id="share" type="button">Share</button></div>
+  <div id="result"><h1 id="verdict"></h1><p id="time"></p><p id="summary"></p><p id="best"></p><div class="actions"><button id="share" type="button">Share</button><a id="next" href="../clocked/">Next: Clocked &rarr;</a></div></div>
   <svg id="board" role="group" aria-label="Computation graph"></svg>
   <div id="bar">
     <div id="hand"></div>
@@ -199,6 +200,7 @@
     <summary>Why this game?</summary>
     <p>Fast memory is small, so moving data between memory levels, not arithmetic, is often the real cost.</p>
     <p class="refs">Hong &amp; Kung, STOC 1981</p>
+    <p class="refs"><a href="../games/">All eight games</a></p>
   </details>
 </main>
 <script>
@@ -232,23 +234,14 @@
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {} };
     const starred = r => !!r && r.best <= r.opt;
 
-    // Level buttons get a check once solved and a star once solved optimally;
-    // each menu tab shows how many stars that game has.
+    // Level buttons get a check once solved and a star once solved optimally.
+    // (The games list page reads the same saved progress to show stars per game.)
     function marks() {
       document.querySelectorAll('#levels button').forEach(b => {
         const r = (data[KIT.game] || {})[b.dataset.name];
         b.innerHTML = b.dataset.name + (!r ? '' : starred(r)
           ? '<span class="mark star" aria-label="optimal">★</span>'
           : '<span class="mark tick" aria-label="solved">✓</span>');
-      });
-      document.querySelectorAll('#games a').forEach(a => {
-        const game = a.hasAttribute('aria-current') ? KIT.game
-          : a.getAttribute('href').replace(/\.\.?\//g, '').replace(/\/$/, '') || 'reversible';
-        const n = Object.values(data[game] || {}).filter(starred).length;
-        let s = a.querySelector('.stars');
-        if (!n) { if (s) s.remove(); return; }
-        if (!s) { s = document.createElement('span'); s.className = 'stars'; a.appendChild(s); }
-        s.textContent = '★' + n;
       });
     }
 
@@ -549,6 +542,15 @@
   board.addEventListener('contextmenu', e => e.preventDefault());
   kit.init();
   setLevel(levelButtons[0]);
+  // A link ending in #about opens the "Why this game?" note and scrolls to it.
+  function openAbout() {
+    if (location.hash !== '#about') return;
+    const a = document.getElementById('about');
+    a.open = true;
+    a.scrollIntoView({ block: 'start' });
+  }
+  window.addEventListener('hashchange', openAbout);
+  openAbout();
 </script>
 </body>
 </html>
