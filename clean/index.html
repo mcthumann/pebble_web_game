@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Pebble Game: Clean finish</title>
+<meta name="description" content="Reversible pebbling with a clean finish: get to the flag, then clear every other pebble, in as few moves as you can.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Pebble Games">
+<meta property="og:title" content="Pebble Game: Clean finish">
+<meta property="og:description" content="Reversible pebbling with a clean finish: get to the flag, then clear every other pebble, in as few moves as you can.">
+<meta property="og:url" content="https://mcthumann.github.io/pebble_web_game/clean/">
+<meta property="og:image" content="https://mcthumann.github.io/pebble_web_game/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pebble Games: puzzles about memory, time and energy">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  :root {
+    --ink: #1F2329; --muted: #7A808A; --faint: #D5D9DF;
+    --pebble: #1A1C20; --red: #E31A1C; --green: #009E73;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: #fff; color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    touch-action: manipulation; user-select: none; -webkit-user-select: none;
+  }
+  main {
+    max-width: 480px; min-height: 100%; margin: 0 auto; padding: 20px 16px 24px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  button {
+    font: inherit; font-size: 16px; font-weight: 600; padding: 10px 18px;
+    background: #fff; color: var(--ink); border: 2px solid var(--faint); border-radius: 10px;
+  }
+
+
+  #levels { display: flex; gap: 8px; }
+  #levels button { flex: 1; padding: 10px 0; }
+  #levels button.sel { background: var(--pebble); border-color: var(--pebble); color: #fff; }
+
+  #info {
+    background: #F4F5F7; border: 2px solid var(--faint); border-radius: 12px;
+    padding: 12px 14px; font-size: 17px; line-height: 1.4;
+  }
+  #top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  #top p { margin: 0; }
+  #hintBtn { padding: 8px 14px; flex: none; }
+  #hint { display: none; margin: 10px 0 0; padding-top: 10px; border-top: 2px solid var(--faint); font-weight: 600; }
+  #info.open #hint { display: block; }
+
+  #stats { display: flex; gap: 8px; margin-bottom: 12px; }
+  .stat {
+    flex: 1; text-align: center; padding: 8px 4px;
+    border: 2px solid var(--faint); border-radius: 12px;
+  }
+  .stat span { display: block; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .stat b { display: block; font-size: 26px; line-height: 1.15; font-variant-numeric: tabular-nums; }
+  #movesBox.past { border-color: #D55E00; }
+  #movesBox.past b { color: #D55E00; }
+
+  #solved { display: none; text-align: center; color: #fff; margin-bottom: 20px; }
+  #solved h1 { margin: 0; font-size: 64px; line-height: 1.1; }
+  #solved p { margin: 4px 0 0; font-size: 24px; }
+  #solved #time { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  #board { display: block; width: 100%; height: auto; }
+  #track { fill: none; stroke: var(--pebble); stroke-width: 9; stroke-linecap: round; }
+  .node { cursor: pointer; }
+  .node .hit { fill: transparent; }
+  .node .ring { fill: #fff; stroke: var(--pebble); stroke-width: 4; }
+  .node .dot { fill: var(--pebble); display: none; }
+  .node.on .dot { display: block; }
+  .node.on .flag { display: none; }
+  .node.fixed .ring { fill: var(--pebble); }
+  .node.goal.on .ring { stroke: var(--green); stroke-width: 5; }
+  .node.bad .ring { fill: var(--red); stroke: var(--red); }
+  .node text { font-size: 15px; font-weight: 650; fill: var(--muted); text-anchor: middle; }
+  .node.bad text { fill: var(--red); }
+
+  #bar { display: flex; align-items: center; justify-content: space-between; }
+  #hand { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; font-size: 16px; }
+  #hand.bad { background: var(--red); color: #fff; }
+  #hand i {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--pebble); border: 2px solid var(--pebble);
+  }
+  #hand i.used { background: transparent; border-color: var(--faint); }
+
+  body.won { background: var(--green); }
+  body.won #info, body.won #stats { display: none; }
+  body.won #solved { display: block; }
+  body.won #hand { color: #fff; }
+  body.won .node text { fill: #fff; }
+  body.won button { border-color: #fff; }
+  body.won #levels button.sel { border-color: var(--pebble); }
+  /* Stars, sharing and feel (the same block on every game page). */
+  #levels .mark { margin-left: 5px; font-size: 14px; }
+  #levels .mark.star { color: #E0A800; }
+  #levels .mark.done { color: #E0A800; }
+  main #best { margin-top: 6px; font-size: 17px; font-weight: 650; }
+  main #share {
+    margin-top: 12px; padding: 7px 22px; font-size: 15px;
+    background: transparent; color: #fff; border: 2px solid #fff; border-radius: 10px;
+  }
+  body.lost #share, body.lost #best { display: none; }
+  .confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+  @media (prefers-reduced-motion: no-preference) {
+    @keyframes pop { 0% { transform: scale(.3); } 65% { transform: scale(1.15); } 100% { transform: scale(1); } }
+    .node.on:not(.fixed) .dot { transform-box: fill-box; transform-origin: center; animation: pop .22s ease-out; }
+  }
+  /* "Why this game?": one line on why it matters, folded away by default. */
+  #about { border-top: 2px solid var(--faint); padding-top: 12px; font-size: 15px; line-height: 1.45; user-select: text; -webkit-user-select: text; }
+  #about summary { font-weight: 600; color: var(--muted); cursor: pointer; }
+  #about p { margin: 8px 0 0; }
+  #about .refs { font-size: 14px; color: var(--muted); }
+  #about a { color: inherit; }
+  body.won #about, body.done #about { display: none; }
+  /* Header: the game's name and one way out to the list of all games. */
+  #head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: -4px; }
+  #head .kicker { display: block; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  #head h1 { margin: 0; font-size: 22px; line-height: 1.2; color: var(--ink); }
+  #head a {
+    flex: none; padding: 7px 14px; font-size: 15px; font-weight: 650; text-decoration: none;
+    color: var(--ink); border: 2px solid var(--faint); border-radius: 10px;
+  }
+  body.won #head .kicker, body.done #head .kicker { color: rgba(255,255,255,.8); }
+  body.won #head h1, body.done #head h1 { color: #fff; }
+  body.won #head a, body.done #head a { color: #fff; border-color: #fff; }
+  /* Finish screen: share the result, or move on to the next game. */
+  main .actions { display: flex; justify-content: center; gap: 10px; margin-top: 12px; }
+  main .actions #share { margin-top: 0; }
+  main #next {
+    padding: 7px 18px; font-size: 15px; font-weight: 650; text-decoration: none;
+    background: #fff; color: var(--green); border: 2px solid #fff; border-radius: 10px;
+  }
+  body.lost #next { display: none; }
+  /* Reach the flag, or finish clean: two versions of the same game. */
+  #mode { display: flex; padding: 3px; gap: 3px; background: #F4F5F7; border: 2px solid var(--faint); border-radius: 12px; }
+  #mode a {
+    flex: 1; text-align: center; padding: 7px 0; border-radius: 8px;
+    font-size: 15px; font-weight: 650; color: var(--muted); text-decoration: none;
+  }
+  #mode a.sel { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  body.won #mode { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <header id="head">
+    <div><span class="kicker">Pebble Games</span><h1>Reversible</h1></div>
+    <a href="../games/">Games</a>
+  </header>
+  <nav id="mode" aria-label="Version"><a href="../">Reach the flag</a><a class="sel" aria-current="page">Clean finish</a></nav>
+  <div id="levels">
+    <button type="button" data-p="3" data-opt="9">Easy</button>
+    <button type="button" data-p="4" data-opt="25">Medium</button>
+    <button type="button" data-p="5" data-opt="71">Hard</button>
+  </div>
+  <div id="info">
+    <div id="top">
+      <p>Tap a spot to place or remove a pebble, but only when the spot before it has one. <b>Get to the flag, then clear every other pebble.</b></p>
+      <button id="hintBtn" type="button">Hint</button>
+    </div>
+    <p id="hint">Get partway with nothing left behind, then treat that spot as a new start.</p>
+  </div>
+  <div id="stats">
+    <div class="stat" id="movesBox"><span>Moves</span><b id="moves"></b></div>
+    <div class="stat"><span>Optimal</span><b id="opt"></b></div>
+  </div>
+  <div id="solved"><h1 id="verdict">Solved</h1><p id="time"></p><p id="count"></p><p id="best"></p><div class="actions"><button id="share" type="button">Share</button><a id="next" href="../erase/">Next: Erasure &rarr;</a></div></div>
+  <svg id="board" role="group" aria-label="Pebble line"></svg>
+  <div id="bar">
+    <div id="hand"></div>
+    <button id="reset" type="button">Reset</button>
+  </div>
+  <details id="about">
+    <summary>Why this game?</summary>
+    <p>A reversible computer can't throw scratch work away, since erasing costs heat. It has to finish clean, uncomputing everything but the answer, and that cleanup costs extra moves or extra memory.</p>
+    <p class="refs">Bennett, <i>SIAM J. Comput.</i> 1989 · Knill, <a href="https://arxiv.org/abs/math/9508218">arXiv:math/9508218</a></p>
+    <p class="refs"><a href="../games/">All games</a></p>
+  </details>
+</main>
+<script>
+  // Clean finish (Knill's game): win when the flag holds the only pebble.
+  // Easy, Medium, Hard give 3, 4, 5 pebbles. With P pebbles the furthest spot
+  // that can be finished clean is 2^(P-1), so that is where the flag goes:
+  // 4, 8, 16. data-opt is the fewest moves, by breadth-first search: 9, 25, 71
+  // (Hard beats Bennett's halving recursion, which takes 3^4 = 81).
+  const PER_ROW = 4;
+  const X0 = 40, DX = 75, Y0 = 40, DY = 84, R = 23, XR = X0 + DX * (PER_ROW - 1);
+  const SVG = 'http://www.w3.org/2000/svg';
+  const board = document.getElementById('board');
+  const hand = document.getElementById('hand');
+  const levelButtons = [...document.querySelectorAll('#levels button')];
+
+  // ---------- Stars, feel and sharing (the same block on every game page) ----------
+  // Progress is kept in this browser only: for each level, the best score and
+  // that level's optimum, so a star means best <= optimum (lower is better).
+  const KIT = { game: 'clean', title: 'Clean finish', unit: 'moves', path: 'clean/' };
+  const kit = (() => {
+    const KEY = 'pebble-games-v1', BASE = 'https://mcthumann.github.io/pebble_web_game/';
+    const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const el = id => document.getElementById(id);
+    let data = {}, shareText = '', lastBuzz = 0;
+    try { data = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) {}
+    const save = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {} };
+    const starred = r => !!r && r.best <= r.opt;
+
+    // Level buttons get an outline star once finished and a filled star once
+    // finished optimally, so the goal is to fill every star.
+    // (The games list page reads the same saved progress to show stars per game.)
+    function marks() {
+      document.querySelectorAll('#levels button').forEach(b => {
+        const r = (data[KIT.game] || {})[b.dataset.name];
+        b.innerHTML = b.dataset.name + (!r ? '' : starred(r)
+          ? '<span class="mark star" aria-label="optimal">★</span>'
+          : '<span class="mark done" aria-label="finished">☆</span>');
+      });
+    }
+
+    function buzz(pattern) {
+      const now = performance.now();
+      if (now - lastBuzz < 120) return;
+      lastBuzz = now;
+      try { if (navigator.vibrate) navigator.vibrate(pattern || 30); } catch (e) {}
+    }
+
+    // A short, light confetti burst, only for optimal finishes.
+    function confetti() {
+      if (calm) return;
+      const c = document.createElement('canvas'), ctx = c.getContext('2d'), dpr = window.devicePixelRatio || 1;
+      const W = innerWidth, H = innerHeight;
+      c.className = 'confetti'; c.width = W * dpr; c.height = H * dpr;
+      document.body.appendChild(c); ctx.scale(dpr, dpr);
+      const colors = ['#FFFFFF', '#F5C542', '#FFE8A3', '#BFF0DD'];
+      const bits = Array.from({ length: 70 }, () => ({
+        x: W / 2 + (Math.random() - .5) * 140, y: H * .26,
+        vx: (Math.random() - .5) * 9, vy: -3 - Math.random() * 8,
+        a: Math.random() * 6.3, va: (Math.random() - .5) * .3,
+        w: 5 + Math.random() * 4, h: 8 + Math.random() * 6,
+        c: colors[Math.floor(Math.random() * colors.length)],
+      }));
+      const t0 = performance.now();
+      (function frame(t) {
+        const age = (t - t0) / 1600;
+        ctx.clearRect(0, 0, W, H);
+        if (age >= 1) { c.remove(); return; }
+        ctx.globalAlpha = Math.min(1, (1 - age) * 2.5);
+        for (const b of bits) {
+          b.vy += .28; b.vx *= .99; b.x += b.vx; b.y += b.vy; b.a += b.va;
+          ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.a);
+          ctx.fillStyle = b.c; ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h); ctx.restore();
+        }
+        requestAnimationFrame(frame);
+      })(t0);
+    }
+
+    // A finished run: save it, note a new star or best, celebrate, and get the
+    // share line ready. Pass { record: false } for levels that should not count.
+    function finish(level, score, opt, time, opts = {}) {
+      const optimal = score <= opt;
+      let line = '';
+      if (opts.record !== false) {
+        const g = data[KIT.game] = data[KIT.game] || {};
+        const old = g[level];
+        g[level] = { best: old ? Math.min(old.best, score) : score, opt };
+        save();
+        marks();
+        if (optimal && !starred(old)) line = 'New star ★';
+        else if (!optimal && !old) line = '☆ earned · match the optimum to fill it';
+        else if (!optimal && score < old.best) line = 'New best';
+        else if (!optimal && old) line = 'Your best: ' + (KIT.unit === 'cost' ? 'cost ' : '') + old.best;
+      }
+      el('best').textContent = line;
+      const amount = KIT.unit === 'cost' ? 'cost ' + score : score + ' ' + KIT.unit;
+      shareText = (optimal ? '★ ' : '') + 'Pebble Game · ' + KIT.title + ' ' + level + ' · ' + amount +
+        (optimal ? ', optimal' : ' (optimal ' + opt + ')') + ' in ' + time + '\n' + (opts.url || BASE + KIT.path);
+      el('share').textContent = 'Share';
+      nextLabel();
+      buzz(optimal ? [15, 60, 15, 60, 30] : 25);
+      if (optimal) setTimeout(confetti, 60);
+    }
+
+    function clear() { const b = el('best'); if (b) b.textContent = ''; }
+
+    // Next climbs this game's levels first (Easy, Medium, Hard), then moves on
+    // to the next game. gameNext keeps the label written in the page for that.
+    let gameNext = '';
+    function nextLevelButton() {
+      const buttons = [...document.querySelectorAll('#levels button')];
+      const i = buttons.findIndex(b => b.classList.contains('sel'));
+      return i >= 0 && i < buttons.length - 1 ? buttons[i + 1] : null;
+    }
+    function nextLabel() {
+      const b = nextLevelButton();
+      el('next').textContent = b ? 'Next: ' + b.dataset.name + ' \u2192' : gameNext;
+    }
+
+    // Phones get the share sheet; elsewhere the line is copied.
+    async function share() {
+      const btn = el('share');
+      try {
+        if (navigator.share && matchMedia('(pointer: coarse)').matches) { await navigator.share({ text: shareText }); return; }
+        await navigator.clipboard.writeText(shareText);
+        btn.textContent = 'Copied';
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+        const t = document.createElement('textarea');
+        t.value = shareText; document.body.appendChild(t); t.select();
+        let ok = false; try { ok = document.execCommand('copy'); } catch (e2) {}
+        t.remove();
+        btn.textContent = ok ? 'Copied' : 'Copy failed';
+      }
+      setTimeout(() => { btn.textContent = 'Share'; }, 1600);
+    }
+
+    function init() {
+      document.querySelectorAll('#levels button').forEach(b => { b.dataset.name = b.textContent.trim(); });
+      el('share').addEventListener('click', share);
+      gameNext = el('next').textContent;
+      el('next').addEventListener('click', e => {
+        const b = nextLevelButton();
+        if (b) { e.preventDefault(); b.click(); }
+      });
+      marks();
+    }
+    return { init, finish, clear, buzz, text: () => shareText };
+  })();
+
+  let P, N, OPT, levelName, pebbled, moves, won, nodes, startedAt, solveMs;
+
+  // Spots 0..N snake along one line: rows alternate left-to-right and right-to-left.
+  // Spot 0 is permanently pebbled and does not use one of the player's pebbles.
+  function build() {
+    const rows = Math.ceil((N + 1) / PER_ROW);
+    const spotX = i => { const row = Math.floor(i / PER_ROW), k = i % PER_ROW; return X0 + DX * (row % 2 ? PER_ROW - 1 - k : k); };
+    let d = 'M' + X0 + ' ' + Y0 + 'H' + XR;
+    for (let r = 1; r < rows; r++) {
+      const y = Y0 + DY * r, right = r % 2 === 1;
+      d += 'A' + DY / 2 + ' ' + DY / 2 + ' 0 0 ' + (right ? 1 : 0) + ' ' + (right ? XR : X0) + ' ' + y +
+           'H' + spotX(Math.min(N, (r + 1) * PER_ROW - 1));
+    }
+    board.setAttribute('viewBox', '-18 6 340 ' + rows * DY);
+    board.innerHTML = '<path id="track" d="' + d + '"/>';
+    nodes = [];
+    for (let i = 0; i <= N; i++) {
+      const row = Math.floor(i / PER_ROW), k = i % PER_ROW;
+      const x = X0 + DX * (row % 2 ? PER_ROW - 1 - k : k), y = Y0 + DY * row;
+      const g = document.createElementNS(SVG, 'g');
+      g.setAttribute('class', i === 0 ? 'node fixed' : i === N ? 'node goal' : 'node');
+      g.setAttribute('role', 'button');
+      g.setAttribute('aria-label', 'Spot ' + i);
+      g.innerHTML =
+        '<rect class="hit" x="' + (x - DX / 2) + '" y="' + (y - 30) + '" width="' + DX + '" height="76"/>' +
+        '<circle class="ring" cx="' + x + '" cy="' + y + '" r="' + R + '"/>' +
+        (i === N
+          ? '<g class="flag" transform="translate(' + (x - 7) + ' ' + (y - 12) + ')">' +
+            '<path d="M2 1v22" stroke="#1F2329" stroke-width="2.6" stroke-linecap="round" fill="none"/>' +
+            '<path d="M3.5 2h13l-3.5 4.5 3.5 4.5h-13z" fill="#1F2329"/></g>'
+          : '') +
+        '<circle class="dot" cx="' + x + '" cy="' + y + '" r="14"/>' +
+        '<text x="' + x + '" y="' + (y + R + 19) + '">' + i + '</text>';
+      g.addEventListener('click', () => tap(i));
+      board.appendChild(g);
+      nodes.push(g);
+    }
+  }
+
+  function inHand() { return P - pebbled.slice(1).filter(Boolean).length; }
+  // Pebbles still to clear once the flag is reached: every spot but the flag.
+  function toClear() { return pebbled.slice(1, N).filter(Boolean).length; }
+
+  function flash(el) {
+    kit.buzz();
+    el.classList.add('bad');
+    clearTimeout(el.badTimer);
+    el.badTimer = setTimeout(() => el.classList.remove('bad'), 450);
+  }
+
+  function tap(i) {
+    if (won) return;
+    const placing = !pebbled[i];
+    if (i === 0 || !pebbled[i - 1]) { flash(nodes[i]); return; }
+    if (placing && inHand() === 0) { flash(nodes[i]); flash(hand); return; }
+    pebbled[i] = placing;
+    // The clock runs from the first legal move to the clean finish.
+    if (moves === 0) startedAt = performance.now();
+    moves++;
+    if (placing && i === N && toClear()) kit.buzz(15);
+    if (pebbled[N] && toClear() === 0) { won = true; solveMs = performance.now() - startedAt; kit.finish(levelName, moves, OPT, clock(solveMs)); }
+    render();
+  }
+
+  function clock(ms) {
+    const t = Math.round(ms / 100), m = Math.floor(t / 600), sec = ((t % 600) / 10).toFixed(1);
+    return m ? m + ':' + sec.padStart(4, '0') : sec + ' s';
+  }
+
+  function render() {
+    for (let i = 0; i <= N; i++) nodes[i].classList.toggle('on', pebbled[i]);
+    const left = inHand();
+    let dots = '';
+    for (let k = 0; k < P; k++) dots += '<i class="' + (k < left ? '' : 'used') + '"></i>';
+    hand.innerHTML = dots + '<span>' + (pebbled[N] && !won ? toClear() + ' to clear' : left + ' in hand') + '</span>';
+    document.getElementById('moves').textContent = moves;
+    document.getElementById('movesBox').classList.toggle('past', moves > OPT);
+    document.body.classList.toggle('won', won);
+    document.getElementById('time').textContent = won ? clock(solveMs) : '';
+    document.getElementById('verdict').textContent = moves === OPT ? 'Optimal!' : 'Solved';
+    document.getElementById('count').textContent = levelName + ' · ' + moves + ' moves · optimal ' + OPT;
+  }
+
+  function reset() {
+    kit.clear();
+    pebbled = new Array(N + 1).fill(false);
+    pebbled[0] = true;
+    moves = 0;
+    won = false;
+    render();
+  }
+
+  function setLevel(btn) {
+    P = Number(btn.dataset.p);
+    N = 2 ** (P - 1);
+    OPT = Number(btn.dataset.opt);
+    document.getElementById('opt').textContent = OPT;
+    levelName = btn.dataset.name;
+    levelButtons.forEach(b => b.classList.toggle('sel', b === btn));
+    build();
+    reset();
+  }
+
+  levelButtons.forEach(b => b.addEventListener('click', () => setLevel(b)));
+  document.getElementById('reset').addEventListener('click', reset);
+  document.getElementById('hintBtn').addEventListener('click', () =>
+    document.getElementById('info').classList.toggle('open'));
+  kit.init();
+  setLevel(levelButtons[0]);
+  // A link ending in #about opens the "Why this game?" note and scrolls to it.
+  function openAbout() {
+    if (location.hash !== '#about') return;
+    const a = document.getElementById('about');
+    a.open = true;
+    a.scrollIntoView({ block: 'start' });
+  }
+  window.addEventListener('hashchange', openAbout);
+  openAbout();
+</script>
+</body>
+</html>

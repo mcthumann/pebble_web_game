@@ -4,16 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pebble Games: all games</title>
-<meta name="description" content="Eight puzzles about memory, time and energy in computing, and why each one matters.">
+<meta name="description" content="Puzzles about memory, time and energy in computing, and why each one matters.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Pebble Games">
-<meta property="og:title" content="Pebble Games: all eight games">
-<meta property="og:description" content="Eight puzzles about memory, time and energy in computing, and why each one matters.">
+<meta property="og:title" content="Pebble Games: all games">
+<meta property="og:description" content="Puzzles about memory, time and energy in computing, and why each one matters.">
 <meta property="og:url" content="https://mcthumann.github.io/pebble_web_game/games/">
 <meta property="og:image" content="https://mcthumann.github.io/pebble_web_game/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Pebble Games: eight puzzles about memory, time and energy">
+<meta property="og:image:alt" content="Pebble Games: puzzles about memory, time and energy">
 <meta name="twitter:card" content="summary_large_image">
 <style>
   :root { --ink: #1F2329; --muted: #7A808A; --faint: #D5D9DF; --pebble: #1A1C20; --gold: #E0A800; }
@@ -51,6 +51,12 @@
     <p>Erasing information costs heat. Uncomputing avoids erasure, but needs extra memory, which can be traded for extra time.</p>
     <p class="refs">Bennett, <i>SIAM J. Comput.</i> 1989 · Knill, <a href="https://arxiv.org/abs/math/9508218">arXiv:math/9508218</a></p>
     <a class="play" href="../">Play Reversible &rarr;</a>
+  </section>
+  <section>
+    <h2><a href="../clean/">Clean finish</a><span class="stars" data-game="clean"></span></h2>
+    <p>The same game, but a reversible computer can't leave scratch work behind. Ending with only the answer costs extra moves or extra memory.</p>
+    <p class="refs">Bennett, <i>SIAM J. Comput.</i> 1989 · Knill, <a href="https://arxiv.org/abs/math/9508218">arXiv:math/9508218</a></p>
+    <a class="play" href="../clean/">Play Clean finish &rarr;</a>
   </section>
   <section>
     <h2><a href="../erase/">Erasure</a><span class="stars" data-game="erase"></span></h2>
@@ -98,7 +104,7 @@
   // shows a faint star until finished, an outline star once finished, and a
   // filled star once its best score reaches the optimum.
   const LEVELS = {
-    reversible: ['Easy', 'Medium', 'Hard'], erase: ['Easy', 'Medium', 'Hard'],
+    reversible: ['Easy', 'Medium', 'Hard'], clean: ['Easy', 'Medium', 'Hard'], erase: ['Easy', 'Medium', 'Hard'],
     prices: ['Easy', 'Medium', 'Hard'], pits: ['Easy', 'Medium', 'Hard'],
     spooky: ['Easy', 'Medium', 'Hard'], dag: ['Pyramid', 'Tree', 'Puzzle'],
     redblue: ['Easy', 'Medium', 'Hard'], clocked: ['Easy', 'Medium', 'Hard'],
