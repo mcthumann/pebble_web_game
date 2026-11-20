@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Pebble Game: Pits</title>
+<style>
+  :root {
+    --ink: #1F2329; --muted: #7A808A; --faint: #D5D9DF; --slot: #B8BEC6;
+    --pebble: #1A1C20; --red: #E31A1C; --green: #009E73; --warn: #D55E00;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overscroll-behavior: none; }
+  body {
+    background: #fff; color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    touch-action: manipulation; user-select: none; -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  main {
+    max-width: 480px; min-height: 100%; margin: 0 auto; padding: 20px 16px 24px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  button {
+    font: inherit; font-size: 16px; font-weight: 600; padding: 10px 18px;
+    background: #fff; color: var(--ink); border: 2px solid var(--faint); border-radius: 10px;
+  }
+
+  #levels { display: flex; gap: 8px; }
+  #levels button { flex: 1; padding: 10px 0; }
+  #levels button.sel { background: var(--pebble); border-color: var(--pebble); color: #fff; }
+
+  #info {
+    margin: 0; list-style: none;
+    background: #F4F5F7; border: 2px solid var(--faint); border-radius: 12px;
+    padding: 12px 14px; font-size: 16px; line-height: 1.35;
+  }
+  #info li { position: relative; padding-left: 18px; }
+  #info li + li { margin-top: 7px; }
+  #info li::before {
+    content: ""; position: absolute; left: 2px; top: .5em;
+    width: 7px; height: 7px; border-radius: 50%; background: var(--pebble);
+  }
+
+  #stats { display: flex; gap: 8px; }
+  .stat {
+    flex: 1; text-align: center; padding: 8px 4px;
+    border: 2px solid var(--faint); border-radius: 12px;
+  }
+  .stat span { display: block; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .stat b { display: block; font-size: 26px; line-height: 1.15; font-variant-numeric: tabular-nums; }
+  #movesBox.past { border-color: var(--warn); }
+  #movesBox.past b { color: var(--warn); }
+
+  #goal { display: flex; gap: 8px; margin: 0 0 6px; padding: 0; list-style: none; }
+  #goal li {
+    flex: 1; display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+    border: 2px solid var(--faint); border-radius: 12px;
+    font-size: 15px; font-weight: 600; line-height: 1.2; color: var(--muted);
+  }
+  #goal li::before {
+    content: attr(data-n); flex: none; width: 24px; height: 24px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 14px;
+    border: 2px solid currentColor;
+  }
+  #goal li.now { color: var(--ink); border-color: var(--pebble); }
+  #goal li.ok { color: var(--green); border-color: var(--green); }
+  #goal li.ok::before { content: "\2713"; background: var(--green); border-color: var(--green); color: #fff; }
+  #goal li.urgent { background: var(--pebble); border-color: var(--pebble); color: #fff; }
+
+  #result { display: none; text-align: center; color: #fff; }
+  #result h1 { margin: 0; font-size: 56px; line-height: 1.1; }
+  #result p { margin: 4px 0 0; font-size: 22px; }
+  #result #time { font-size: 36px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  #board { display: block; width: 100%; height: auto; }
+  #track { fill: none; stroke: var(--pebble); stroke-width: 9; stroke-linecap: round; }
+  .node { cursor: pointer; }
+  .node .hit { fill: transparent; }
+  .node .ring { fill: #fff; stroke: var(--pebble); stroke-width: 4; }
+  .node.goal .ring { stroke-dasharray: 7 5; }
+  /* A pit's slots: outlined while empty; a full pit turns solid with white pebbles. */
+  .node .pip { fill: #fff; stroke: var(--slot); stroke-width: 2; }
+  .node .size { font-size: 17px; font-weight: 700; fill: var(--muted); }
+  .node.full .ring, .node.fixed .ring { fill: var(--pebble); }
+  .node.full .pip { fill: #fff; stroke: #fff; }
+  .node.full .size { fill: #fff; }
+  .node.bad .ring { fill: var(--red); stroke: var(--red); }
+  .node.bad .pip { stroke: #fff; }
+  .node text { font-size: 15px; font-weight: 650; fill: var(--muted); text-anchor: middle; }
+  .node.bad .label { fill: var(--red); }
+  .node .flag path { fill: var(--ink); stroke: var(--ink); }
+  /* Flag filled: the pits that still have to be emptied pulse. */
+  .node.tidy .ring { stroke: var(--warn); animation: tidy 1.1s ease-in-out infinite; }
+  .node.tidy .label { fill: var(--warn); }
+  @keyframes tidy { 50% { stroke-width: 8; } }
+
+  #bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  #hand { display: flex; align-items: center; gap: 5px; padding: 6px 8px; border-radius: 10px; font-size: 16px; }
+  #hand.bad { background: var(--red); color: #fff; }
+  #hand i {
+    flex: none; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--pebble); border: 2px solid var(--pebble);
+  }
+  #hand.many { gap: 3px; }
+  #hand.many i { width: 13px; height: 13px; }
+  #hand i.used { background: transparent; border-color: var(--faint); }
+  #hand span { margin-left: 2px; white-space: nowrap; }
+
+  #custom { border-top: 2px solid var(--faint); padding-top: 12px; font-size: 15px; }
+  #custom summary { font-weight: 600; cursor: pointer; color: var(--muted); }
+  #customForm { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin-top: 10px; }
+  #customForm label { display: flex; flex-direction: column; gap: 3px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  #customForm input {
+    font: inherit; font-size: 16px; padding: 8px 10px; border: 2px solid var(--faint); border-radius: 8px;
+    user-select: text; -webkit-user-select: text;
+  }
+  #sizes { width: 190px; }
+  #mem { width: 80px; }
+  #customForm button { padding: 9px 16px; }
+  #customMsg { margin: 8px 0 0; color: var(--muted); line-height: 1.35; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
+  #customMsg.err { color: var(--red); font-weight: 600; }
+
+  body.won { background: var(--green); }
+  body.won #info, body.won #stats, body.won #goal, body.won #custom { display: none; }
+  body.won #result { display: block; }
+  body.won #hand { color: #fff; }
+  body.won .node .label { fill: #fff; }
+  body.won .node .flag path { fill: #fff; stroke: #fff; }
+  body.won button { border-color: #fff; }
+  body.won #levels button.sel { border-color: var(--pebble); }
+</style>
+</head>
+<body>
+<main>
+  <div id="levels">
+    <button type="button" data-p="1,1,2,3,2,4,1">Easy</button>
+    <button type="button" data-p="1,1,1,2,2,1,3,1">Medium</button>
+    <button type="button" data-p="1,1,1,2,2,3,2,4,1,4,2,2">Hard</button>
+  </div>
+  <ul id="info">
+    <li>You only have the pebbles shown below the board.</li>
+    <li>A pit takes all its pebbles at once, one per slot.</li>
+    <li><b>Tap</b> a pit to fill it or empty it. Each tap is one move.</li>
+    <li>You can only tap a pit when <b>the pit before it is full</b>.</li>
+    <li><b>Goal:</b> both steps below, in as few moves as you can.</li>
+  </ul>
+  <div id="stats">
+    <div class="stat" id="movesBox"><span>Moves</span><b id="moves"></b></div>
+    <div class="stat"><span>Optimal</span><b id="opt"></b></div>
+    <div class="stat"><span>Pebbles</span><b id="mm"></b><span id="mmNote"></span></div>
+  </div>
+  <ol id="goal">
+    <li id="g1" data-n="1">Fill the flag pit</li>
+    <li id="g2" data-n="2" aria-live="polite"></li>
+  </ol>
+  <div id="result">
+    <h1 id="verdict"></h1><p id="time"></p><p id="summary"></p>
+  </div>
+  <svg id="board" role="group" aria-label="Line of pits"></svg>
+  <div id="bar">
+    <div id="hand"></div>
+    <button id="reset" type="button">Reset</button>
+  </div>
+  <details id="custom">
+    <summary>Try your own pit sizes</summary>
+    <form id="customForm">
+      <label>Sizes, pit 1 to flag<input id="sizes" inputmode="numeric" autocomplete="off" placeholder="1,2,2,1,3,1"></label>
+      <label>Pebbles<input id="mem" inputmode="numeric" autocomplete="off" placeholder="min"></label>
+      <button type="submit">Play</button>
+    </form>
+    <p id="customMsg">Up to 20 pits. Leave Pebbles empty for the minimum. You'll get a link to share the level.</p>
+  </details>
+</main>
+<script>
+  // Multipebble-node line game, fully reversible, clean finish. Pit k is an
+  // indivisible bundle of p_k pebbles: one tap fills or empties it (one move),
+  // and only while pit k-1 is full (spot 0 is a permanent full source). With M
+  // pebbles in total, the player must reach "flag pit full, every other pit
+  // empty". Each level gets the least M for which that is possible,
+  // M_min = p_n + V(1, n-1), and the page computes the fewest moves at that M
+  // by breadth-first search.
+  // Each level beats the best clean-separator schedule (build m; build the flag
+  // side above it; unbuild m): optimal vs separator is Easy 23 vs 27,
+  // Medium 31 vs 37, Hard 61 vs 77. Hard came from a search over 9-14 pits
+  // for the widest gap.
+  // Custom levels: ?p=1,2,2,1,3,1&m=6 (m optional, defaults to the minimum).
+  const X0 = 40, SPAN = 225, Y0 = 40, DY = 88, MAX_PITS = 20;
+  const SVG = 'http://www.w3.org/2000/svg';
+  const PIPS = {
+    1: [[0, 0, 5.5]],
+    2: [[-7.5, 0, 5.5], [7.5, 0, 5.5]],
+    3: [[0, -7.5, 5.5], [-7.5, 5.5, 5.5], [7.5, 5.5, 5.5]],
+    4: [[-7, -7, 5.5], [7, -7, 5.5], [-7, 7, 5.5], [7, 7, 5.5]],
+    5: [[-8, -8, 4.5], [8, -8, 4.5], [0, 0, 4.5], [-8, 8, 4.5], [8, 8, 4.5]],
+    6: [[-6, -9, 4.5], [6, -9, 4.5], [-6, 0, 4.5], [6, 0, 4.5], [-6, 9, 4.5], [6, 9, 4.5]],
+  };
+  const SHARE_BASE = 'https://mcthumann.github.io/pebble_web_game/pits/';
+  const $ = id => document.getElementById(id);
+  const board = $('board'), hand = $('hand');
+  const levelButtons = [...document.querySelectorAll('#levels button')];
+
+  let p, N, M, MMIN, OPT, levelName, PER_ROW, DX, R;
+  let full, moves, won, nodes, startedAt, solveMs;
+
+  // ---------- Analysis ----------
+
+  // Least total pebbles for a clean finish: p_n + V(1, n-1), where
+  // V(a, b) = min over m in [a, b] of p_m + max(V(a, m-1), V(m+1, b)).
+  function minMemory(p) {
+    const n = p.length - 1;
+    const V = Array.from({ length: n + 2 }, () => new Array(n + 2).fill(0));
+    for (let len = 1; len < n; len++) {
+      for (let a = 1; a + len - 1 <= n - 1; a++) {
+        const b = a + len - 1;
+        let best = Infinity;
+        for (let m = a; m <= b; m++) best = Math.min(best, p[m] + Math.max(m > a ? V[a][m - 1] : 0, m < b ? V[m + 1][b] : 0));
+        V[a][b] = best;
+      }
+    }
+    return p[n] + (n > 1 ? V[1][n - 1] : 0);
+  }
+
+  // Fewest moves from all-empty to {flag} with at most M pebbles out, by
+  // breadth-first search over sets of full pits (bit k-1 = pit k).
+  function optimal(p, M) {
+    const n = p.length - 1, size = 1 << n, goal = 1 << (n - 1);
+    const dist = new Int32Array(size).fill(-1), wt = new Int32Array(size);
+    const q = new Int32Array(size);
+    let head = 0, tail = 0;
+    dist[0] = 0; q[tail++] = 0;
+    while (head < tail) {
+      const s = q[head++];
+      if (s === goal) break;
+      for (let k = 1; k <= n; k++) {
+        if (k > 1 && !((s >> (k - 2)) & 1)) continue;
+        const bit = 1 << (k - 1), t = s ^ bit;
+        if (dist[t] >= 0) continue;
+        const w = s & bit ? wt[s] - p[k] : wt[s] + p[k];
+        if (w > M) continue;
+        wt[t] = w; dist[t] = dist[s] + 1; q[tail++] = t;
+      }
+    }
+    return dist[goal] < 0 ? null : dist[goal];
+  }
+
+  // ---------- Board ----------
+
+  // Pits 0..N snake along one line: rows alternate left-to-right and right-to-left.
+  function build() {
+    const rows = Math.ceil((N + 1) / PER_ROW);
+    const xOf = i => { const r = Math.floor(i / PER_ROW), k = i % PER_ROW; return X0 + DX * (r % 2 ? PER_ROW - 1 - k : k); };
+    let d = 'M' + X0 + ' ' + Y0;
+    for (let r = 0; r < rows; r++) {
+      d += 'H' + xOf(Math.min(N, PER_ROW * r + PER_ROW - 1));
+      if (r < rows - 1) d += 'A' + DY / 2 + ' ' + DY / 2 + ' 0 0 ' + (r % 2 ? 0 : 1) + ' ' +
+                             xOf(PER_ROW * (r + 1)) + ' ' + (Y0 + DY * (r + 1));
+    }
+    board.setAttribute('viewBox', '-18 6 340 ' + rows * DY);
+    board.innerHTML = '<path id="track" d="' + d + '"/>';
+    nodes = [];
+    for (let i = 0; i <= N; i++) {
+      const x = xOf(i), y = Y0 + DY * Math.floor(i / PER_ROW);
+      const g = document.createElementNS(SVG, 'g');
+      g.setAttribute('class', i === 0 ? 'node fixed' : i === N ? 'node goal' : 'node');
+      g.setAttribute('role', 'button');
+      g.setAttribute('aria-label', i === 0 ? 'Source' : 'Pit ' + i + ', size ' + p[i]);
+      let html =
+        '<rect class="hit" x="' + (x - DX / 2) + '" y="' + (y - 32) + '" width="' + DX + '" height="80"/>' +
+        '<circle class="ring" cx="' + x + '" cy="' + y + '" r="' + R + '"/>';
+      if (i > 0) {
+        if (PIPS[p[i]]) for (const [px, py, pr] of PIPS[p[i]]) html += '<circle class="pip" cx="' + (x + px) + '" cy="' + (y + py) + '" r="' + pr + '"/>';
+        else html += '<text class="size" x="' + x + '" y="' + (y + 6) + '">' + p[i] + '</text>';
+      }
+      // The flag sits beside the pit's number so it never hides the slots.
+      html += '<text class="label" x="' + (i === N ? x - 8 : x) + '" y="' + (y + R + 19) + '">' + i + '</text>';
+      if (i === N) html += '<g class="flag" transform="translate(' + (x + 2) + ' ' + (y + R + 4) + ') scale(.7)">' +
+        '<path d="M2 1v22" stroke-width="2.8" stroke-linecap="round" fill="none"/>' +
+        '<path d="M3.5 2h13l-3.5 4.5 3.5 4.5h-13z" stroke="none"/></g>';
+      g.innerHTML = html;
+      g.addEventListener('click', () => tap(i));
+      board.appendChild(g);
+      nodes.push(g);
+    }
+  }
+
+  // ---------- Play ----------
+
+  function inHand() { let used = 0; for (let k = 1; k <= N; k++) if (full[k]) used += p[k]; return M - used; }
+  function stray() { let c = 0; for (let k = 1; k < N; k++) if (full[k]) c++; return c; }
+
+  function flash(el) {
+    el.classList.add('bad');
+    clearTimeout(el.badTimer);
+    el.badTimer = setTimeout(() => el.classList.remove('bad'), 450);
+  }
+
+  function tap(i) {
+    if (won) return;
+    if (i === 0 || !full[i - 1]) { flash(nodes[i]); return; }
+    if (!full[i] && inHand() < p[i]) { flash(nodes[i]); flash(hand); return; }
+    if (moves === 0) startedAt = performance.now();
+    full[i] = !full[i];
+    moves++;
+    if (full[N] && stray() === 0) { won = true; solveMs = performance.now() - startedAt; }
+    render();
+  }
+
+  function clock(ms) {
+    const t = Math.round(ms / 100), m = Math.floor(t / 600), sec = ((t % 600) / 10).toFixed(1);
+    return m ? m + ':' + sec.padStart(4, '0') : sec + ' s';
+  }
+
+  function render() {
+    const flagged = full[N], extra = stray();
+    for (let i = 1; i <= N; i++) {
+      nodes[i].classList.toggle('full', full[i]);
+      nodes[i].classList.toggle('tidy', flagged && i < N && full[i]);
+    }
+    const held = inHand();
+    if (M <= 12) {
+      let dots = '';
+      for (let k = 0; k < M; k++) dots += '<i class="' + (k < held ? '' : 'used') + '"></i>';
+      hand.classList.toggle('many', M > 7);
+      hand.innerHTML = dots + '<span>' + held + ' in hand</span>';
+    } else {
+      hand.innerHTML = '<span>' + held + ' of ' + M + ' in hand</span>';
+    }
+
+    $('moves').textContent = moves;
+    $('movesBox').classList.toggle('past', moves > OPT);
+    const pits = extra === 1 ? ' pit' : ' pits';
+    $('g1').className = flagged ? 'ok' : 'now';
+    $('g2').className = flagged ? 'urgent' : '';
+    $('g2').textContent = flagged ? 'Now empty the other ' + extra + pits : 'Then empty every other pit';
+
+    document.body.classList.toggle('won', won);
+    if (won) {
+      $('verdict').textContent = moves === OPT ? 'Optimal!' : 'Solved';
+      $('time').textContent = clock(solveMs);
+      $('summary').textContent = levelName + ' · ' + moves + ' moves · optimal ' + OPT;
+    }
+  }
+
+  function reset() {
+    full = new Array(N + 1).fill(false);
+    full[0] = true;
+    moves = 0;
+    won = false;
+    render();
+  }
+
+  // Load a size vector (pits 1..n) and an optional pebble count.
+  function load(sizes, mem, name) {
+    p = [0, ...sizes];
+    N = sizes.length;
+    MMIN = minMemory(p);
+    M = mem == null ? MMIN : mem;
+    OPT = optimal(p, M);
+    levelName = name;
+    PER_ROW = N + 1 <= 5 ? N + 1 : N + 1 <= 8 ? 4 : 5;
+    DX = SPAN / (PER_ROW - 1);
+    R = Math.min(23, DX / 2 - 5);
+    $('opt').textContent = OPT;
+    $('mm').textContent = M;
+    $('mmNote').textContent = M === MMIN ? '' : 'minimum ' + MMIN;
+    build();
+    reset();
+  }
+
+  // Point the address bar at the current level when the browser allows it.
+  // Embedded previews (sandboxed frames) refuse, so failure is not an error.
+  function setAddress(query) {
+    try { history.replaceState(null, '', location.pathname + query); return true; }
+    catch (e) { return false; }
+  }
+
+  function setLevel(btn) {
+    levelButtons.forEach(b => b.classList.toggle('sel', b === btn));
+    if (location.search) setAddress('');
+    load(btn.dataset.p.split(',').map(Number), null, btn.textContent);
+  }
+
+  // Custom level from the form or the address: returns an error message or ''.
+  let shareText = '';
+  function playCustom(sizeText, memText) {
+    const sizes = sizeText.split(/[\s,;]+/).filter(Boolean).map(Number);
+    if (!sizes.length || sizes.some(v => !Number.isInteger(v) || v < 1 || v > 99)) return 'Sizes must be whole numbers from 1 to 99, separated by commas.';
+    if (sizes.length > MAX_PITS) return 'At most ' + MAX_PITS + ' pits.';
+    const need = minMemory([0, ...sizes]);
+    let mem = null;
+    if (memText.trim()) {
+      mem = Number(memText);
+      if (!Number.isInteger(mem) || mem < 1) return 'Pebbles must be a whole number.';
+      if (mem < need) return 'These sizes need at least ' + need + ' pebbles for a clean finish.';
+    }
+    levelButtons.forEach(b => b.classList.remove('sel'));
+    load(sizes, mem, 'Custom');
+    const q = '?p=' + sizes.join(',') + (mem == null ? '' : '&m=' + mem);
+    shareText = setAddress(q) ? 'The page address is now a link to this level.'
+                              : 'Link to this level: ' + SHARE_BASE + q;
+    return '';
+  }
+
+  $('customForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const err = playCustom($('sizes').value, $('mem').value);
+    const msg = $('customMsg');
+    msg.classList.toggle('err', !!err);
+    msg.textContent = err || 'Playing ' + N + ' pits with ' + M + ' pebbles (minimum ' + MMIN + '): optimal ' + OPT +
+      ' moves. ' + shareText;
+  });
+
+  // A press that starts on the board must never count as a Reset or level tap:
+  // the winning move swaps the rules for the result and shifts the page under the finger.
+  let pressOnBoard = false;
+  document.addEventListener('pointerdown', e => { pressOnBoard = board.contains(e.target); }, true);
+  const buttonTap = fn => e => { if (pressOnBoard && e.detail !== 0) return; fn(); };
+
+  levelButtons.forEach(b => b.addEventListener('click', buttonTap(() => setLevel(b))));
+  $('reset').addEventListener('click', buttonTap(reset));
+  board.addEventListener('contextmenu', e => e.preventDefault());
+
+  const params = new URLSearchParams(location.search);
+  if (params.has('p')) {
+    $('sizes').value = params.get('p');
+    $('mem').value = params.get('m') || '';
+    const err = playCustom(params.get('p'), params.get('m') || '');
+    if (err) { $('custom').open = true; $('customMsg').textContent = err; $('customMsg').classList.add('err'); setLevel(levelButtons[0]); }
+  } else {
+    setLevel(levelButtons[0]);
+  }
+</script>
+</body>
+</html>
