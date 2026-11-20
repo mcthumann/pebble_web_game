@@ -269,11 +269,25 @@
       shareText = (optimal ? '★ ' : '') + 'Pebble Game · ' + KIT.title + ' ' + level + ' · ' + amount +
         (optimal ? ', optimal' : ' (optimal ' + opt + ')') + ' in ' + time + '\n' + (opts.url || BASE + KIT.path);
       el('share').textContent = 'Share';
+      nextLabel();
       buzz(optimal ? [15, 60, 15, 60, 30] : 25);
       if (optimal) setTimeout(confetti, 60);
     }
 
     function clear() { const b = el('best'); if (b) b.textContent = ''; }
+
+    // Next climbs this game's levels first (Easy, Medium, Hard), then moves on
+    // to the next game. gameNext keeps the label written in the page for that.
+    let gameNext = '';
+    function nextLevelButton() {
+      const buttons = [...document.querySelectorAll('#levels button')];
+      const i = buttons.findIndex(b => b.classList.contains('sel'));
+      return i >= 0 && i < buttons.length - 1 ? buttons[i + 1] : null;
+    }
+    function nextLabel() {
+      const b = nextLevelButton();
+      el('next').textContent = b ? 'Next: ' + b.dataset.name + ' \u2192' : gameNext;
+    }
 
     // Phones get the share sheet; elsewhere the line is copied.
     async function share() {
@@ -296,6 +310,11 @@
     function init() {
       document.querySelectorAll('#levels button').forEach(b => { b.dataset.name = b.textContent.trim(); });
       el('share').addEventListener('click', share);
+      gameNext = el('next').textContent;
+      el('next').addEventListener('click', e => {
+        const b = nextLevelButton();
+        if (b) { e.preventDefault(); b.click(); }
+      });
       marks();
     }
     return { init, finish, clear, buzz, text: () => shareText };
