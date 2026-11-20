@@ -4,6 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Pebble Game: Erasures</title>
+<meta name="description" content="Reversible moves or erasures: find the cheapest way to the flag within the budget.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Pebble Games">
+<meta property="og:title" content="Pebble Game: Erasure">
+<meta property="og:description" content="Reversible moves or erasures: find the cheapest way to the flag within the budget.">
+<meta property="og:url" content="https://mcthumann.github.io/pebble_web_game/erase/">
+<meta property="og:image" content="https://mcthumann.github.io/pebble_web_game/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pebble Games: eight puzzles about memory, time and energy">
+<meta name="twitter:card" content="summary_large_image">
 <style>
   :root {
     --ink: #1F2329; --muted: #7A808A; --faint: #D5D9DF;
@@ -170,6 +181,13 @@
     @keyframes pop { 0% { transform: scale(.3); } 65% { transform: scale(1.15); } 100% { transform: scale(1); } }
     .node.on:not(.fixed) .dot { transform-box: fill-box; transform-origin: center; animation: pop .22s ease-out; }
   }
+  /* "Why this game?": one line on why it matters, folded away by default. */
+  #about { border-top: 2px solid var(--faint); padding-top: 12px; font-size: 15px; line-height: 1.45; user-select: text; -webkit-user-select: text; }
+  #about summary { font-weight: 600; color: var(--muted); cursor: pointer; }
+  #about p { margin: 8px 0 0; }
+  #about .refs { font-size: 14px; color: var(--muted); }
+  #about a { color: inherit; }
+  body.won #about, body.done #about { display: none; }
 </style>
 </head>
 <body>
@@ -214,6 +232,11 @@
     <div id="hand"></div>
     <button id="reset" type="button">Reset</button>
   </div>
+  <details id="about">
+    <summary>Why this game?</summary>
+    <p>At finite speed, reversible steps cost energy too, so erasing a saved state is sometimes the cheaper choice. This game asks when.</p>
+    <p class="refs">Thumann &amp; Soloveichik, <a href="https://arxiv.org/abs/2610.24435">arXiv:2610.24435</a></p>
+  </details>
 </main>
 <script>
   // Semi-reversible pebble game. A tap places or removes a pebble on a spot whose
