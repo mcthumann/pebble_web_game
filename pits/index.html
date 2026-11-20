@@ -26,6 +26,16 @@
     background: #fff; color: var(--ink); border: 2px solid var(--faint); border-radius: 10px;
   }
 
+  /* Menu linking the four games; the current one is underlined. */
+  #games { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px 4px; margin-top: -6px; font-size: 14px; font-weight: 650; }
+  #games a {
+    flex: 1; text-align: center; padding: 6px 0 7px; text-decoration: none;
+    color: var(--muted); border-bottom: 2px solid var(--faint);
+  }
+  #games a[aria-current] { color: var(--ink); border-bottom: 3px solid var(--pebble); padding-bottom: 6px; }
+  body.won #games a, body.done #games a { color: rgba(255,255,255,.8); border-bottom-color: rgba(255,255,255,.45); }
+  body.won #games a[aria-current], body.done #games a[aria-current] { color: #fff; border-bottom-color: #fff; }
+
   #levels { display: flex; gap: 8px; }
   #levels button { flex: 1; padding: 10px 0; }
   #levels button.sel { background: var(--pebble); border-color: var(--pebble); color: #fff; }
@@ -133,6 +143,15 @@
 </head>
 <body>
 <main>
+  <nav id="games" aria-label="Pebble games">
+    <a href="../">Reversible</a>
+    <a href="../erase/">Erasure</a>
+    <a href="../prices/">Prices</a>
+    <a href="./" aria-current="page">Pits</a>
+    <a href="../spooky/">Spooky</a>
+    <a href="../dag/">DAG</a>
+    <a href="../redblue/">Red-blue</a>
+  </nav>
   <div id="levels">
     <button type="button" data-p="1,1,2,3,2,4,1">Easy</button>
     <button type="button" data-p="1,1,1,2,2,1,3,1">Medium</button>

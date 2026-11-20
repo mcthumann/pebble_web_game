@@ -25,6 +25,16 @@
     background: #fff; color: var(--ink); border: 2px solid var(--faint); border-radius: 10px;
   }
 
+  /* Menu linking the four games; the current one is underlined. */
+  #games { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px 4px; margin-top: -6px; font-size: 14px; font-weight: 650; }
+  #games a {
+    flex: 1; text-align: center; padding: 6px 0 7px; text-decoration: none;
+    color: var(--muted); border-bottom: 2px solid var(--faint);
+  }
+  #games a[aria-current] { color: var(--ink); border-bottom: 3px solid var(--pebble); padding-bottom: 6px; }
+  body.won #games a, body.done #games a { color: rgba(255,255,255,.8); border-bottom-color: rgba(255,255,255,.45); }
+  body.won #games a[aria-current], body.done #games a[aria-current] { color: #fff; border-bottom-color: #fff; }
+
   #levels { display: flex; gap: 8px; }
   #levels button { flex: 1; padding: 10px 0; }
   #levels button.sel { background: var(--pebble); border-color: var(--pebble); color: #fff; }
@@ -77,10 +87,19 @@
 </head>
 <body>
 <main>
+  <nav id="games" aria-label="Pebble games">
+    <a href="./" aria-current="page">Reversible</a>
+    <a href="erase/">Erasure</a>
+    <a href="prices/">Prices</a>
+    <a href="pits/">Pits</a>
+    <a href="spooky/">Spooky</a>
+    <a href="dag/">DAG</a>
+    <a href="redblue/">Red-blue</a>
+  </nav>
   <div id="levels">
-    <button type="button" data-p="2">Easy</button>
-    <button type="button" data-p="3">Medium</button>
-    <button type="button" data-p="4">Hard</button>
+    <button type="button" data-p="2" data-opt="4">Easy</button>
+    <button type="button" data-p="3" data-opt="13">Medium</button>
+    <button type="button" data-p="4" data-opt="38">Hard</button>
   </div>
   <div id="info">
     <div id="top">
@@ -89,7 +108,7 @@
     </div>
     <p id="hint">To advance forward, focus on recovering from behind.</p>
   </div>
-  <div id="solved"><h1>Solved</h1><p id="time"></p><p id="count"></p></div>
+  <div id="solved"><h1 id="verdict">Solved</h1><p id="time"></p><p id="count"></p></div>
   <svg id="board" role="group" aria-label="Pebble line"></svg>
   <div id="bar">
     <div id="hand"></div>
@@ -99,6 +118,9 @@
 <script>
   // Easy, Medium, Hard give 2, 3, 4 pebbles. With P pebbles the furthest
   // reachable spot is 2^P - 1, so that is where the flag goes: 3, 7, 15.
+  // data-opt is the fewest moves to get a pebble onto the flag, found by
+  // breadth-first search: 4, 13, 38 (Hard beats the clean recursion's 40,
+  // since nothing has to be picked up afterwards).
   const PER_ROW = 4;
   const X0 = 40, DX = 75, Y0 = 40, DY = 84, R = 23, XR = X0 + DX * (PER_ROW - 1);
   const SVG = 'http://www.w3.org/2000/svg';
@@ -106,7 +128,7 @@
   const hand = document.getElementById('hand');
   const levelButtons = [...document.querySelectorAll('#levels button')];
 
-  let P, N, levelName, pebbled, moves, won, nodes, startedAt, solveMs;
+  let P, N, OPT, levelName, pebbled, moves, won, nodes, startedAt, solveMs;
 
   // Spots 0..N snake along one line: rows alternate left-to-right and right-to-left.
   // Spot 0 is permanently pebbled and does not use one of the player's pebbles.
@@ -178,7 +200,8 @@
     hand.innerHTML = dots + '<span>' + left + ' in hand</span>';
     document.body.classList.toggle('won', won);
     document.getElementById('time').textContent = won ? clock(solveMs) : '';
-    document.getElementById('count').textContent = levelName + ' · ' + moves + ' moves';
+    document.getElementById('verdict').textContent = moves === OPT ? 'Optimal!' : 'Solved';
+    document.getElementById('count').textContent = levelName + ' · ' + moves + ' moves · optimal ' + OPT;
   }
 
   function reset() {
@@ -192,6 +215,7 @@
   function setLevel(btn) {
     P = Number(btn.dataset.p);
     N = 2 ** P - 1;
+    OPT = Number(btn.dataset.opt);
     levelName = btn.textContent;
     levelButtons.forEach(b => b.classList.toggle('sel', b === btn));
     build();

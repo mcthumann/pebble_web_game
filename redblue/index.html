@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Pebble Game: Red-Blue</title>
+<style>
+  :root {
+    --ink: #1F2329; --muted: #7A808A; --faint: #D5D9DF; --slot: #B8BEC6;
+    --pebble: #1A1C20; --green: #009E73; --warn: #D55E00;
+    --red: #D7263D; --blue: #2367C9; --blue-bg: #DDEAFB;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overscroll-behavior: none; }
+  body {
+    background: #fff; color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    touch-action: manipulation; user-select: none; -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  main {
+    max-width: 480px; min-height: 100%; margin: 0 auto; padding: 20px 16px 24px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  button {
+    font: inherit; font-size: 16px; font-weight: 600; padding: 10px 18px;
+    background: #fff; color: var(--ink); border: 2px solid var(--faint); border-radius: 10px;
+  }
+
+  /* Menu linking the games; the current one is underlined. */
+  #games { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px 4px; margin-top: -6px; font-size: 14px; font-weight: 650; }
+  #games a {
+    flex: 1; text-align: center; padding: 6px 0 7px; text-decoration: none;
+    color: var(--muted); border-bottom: 2px solid var(--faint);
+  }
+  #games a[aria-current] { color: var(--ink); border-bottom: 3px solid var(--pebble); padding-bottom: 6px; }
+  body.won #games a { color: rgba(255,255,255,.8); border-bottom-color: rgba(255,255,255,.45); }
+  body.won #games a[aria-current] { color: #fff; border-bottom-color: #fff; }
+
+  #levels { display: flex; gap: 8px; }
+  #levels button { flex: 1; padding: 10px 0; }
+  #levels button.sel { background: var(--pebble); border-color: var(--pebble); color: #fff; }
+
+  #info {
+    margin: 0; list-style: none;
+    background: #F4F5F7; border: 2px solid var(--faint); border-radius: 12px;
+    padding: 12px 14px; font-size: 16px; line-height: 1.35;
+  }
+  #info li { position: relative; padding-left: 18px; }
+  #info li + li { margin-top: 7px; }
+  #info li::before {
+    content: ""; position: absolute; left: 2px; top: .5em;
+    width: 7px; height: 7px; border-radius: 50%; background: var(--pebble);
+  }
+  #info .r { color: var(--red); font-weight: 700; }
+  #info .b { color: var(--blue); font-weight: 700; }
+
+  #stats { display: flex; gap: 8px; }
+  .stat {
+    flex: 1; text-align: center; padding: 8px 4px;
+    border: 2px solid var(--faint); border-radius: 12px;
+  }
+  .stat span { display: block; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .stat b { display: block; font-size: 26px; line-height: 1.15; font-variant-numeric: tabular-nums; }
+  #ioBox.past { border-color: var(--warn); }
+  #ioBox.past b { color: var(--warn); }
+  #goalLine {
+    margin: 0 0 6px; padding: 9px 12px; border: 2px solid var(--pebble); border-radius: 12px;
+    font-size: 15px; font-weight: 600; text-align: center;
+  }
+
+  #result { display: none; text-align: center; color: #fff; }
+  #result h1 { margin: 0; font-size: 56px; line-height: 1.1; }
+  #result p { margin: 4px 0 0; font-size: 22px; }
+  #result #time { font-size: 36px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  #board { display: block; width: 100%; height: auto; }
+  /* An edge is drawn dark once the node it comes from holds a red pebble. */
+  .edge { stroke: var(--faint); stroke-width: 3; stroke-linecap: round; }
+  .edge.live { stroke: var(--pebble); stroke-width: 4.5; }
+  .node { cursor: pointer; touch-action: none; }
+  .node .hit { fill: transparent; }
+  /* Outlined dark: a red pebble can go here for free (every feeder is red). */
+  .node .ring { fill: #fff; stroke: var(--slot); stroke-width: 3.5; }
+  .node.ready .ring { stroke: var(--pebble); stroke-width: 4; }
+  /* Blue: the value sits in slow memory. */
+  .node.blue .ring { fill: var(--blue-bg); stroke: var(--blue); stroke-width: 4.5; }
+  .node.goal .ring { stroke-dasharray: 6 4; }
+  .node.goal.blue .ring { stroke-dasharray: none; }
+  .node .dot { fill: var(--red); display: none; }
+  .node.red .dot { display: block; }
+  .node .flag path { fill: var(--ink); stroke: var(--ink); }
+  .node.blue .flag path { fill: var(--blue); stroke: var(--blue); }
+  .node.bad { animation: shake .35s; }
+  .node.bad .ring { stroke: var(--warn); stroke-width: 5; }
+  @keyframes shake { 20%, 60% { transform: translateX(-3px); } 40%, 80% { transform: translateX(3px); } }
+  /* Holding a red pebble: a blue ring traces the outline until it is stored.
+     It waits 120 ms so quick taps don't flicker; 120 + 330 = HOLD_MS. */
+  .node .hold {
+    fill: none; stroke: var(--blue); stroke-width: 7; stroke-linecap: round;
+    stroke-dasharray: 100; stroke-dashoffset: 100; opacity: 0; pointer-events: none;
+  }
+  .node.holding .hold { animation: holdfill 330ms linear 120ms forwards; }
+  @keyframes holdfill { from { opacity: 1; stroke-dashoffset: 100; } to { opacity: 1; stroke-dashoffset: 0; } }
+
+  #bar { display: flex; align-items: center; justify-content: space-between; }
+  #hand { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; font-size: 16px; }
+  #hand.bad { background: var(--warn); color: #fff; }
+  #hand i {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--red); border: 2px solid var(--red);
+  }
+  #hand i.used { background: transparent; border-color: var(--faint); }
+
+  body.won { background: var(--green); }
+  body.won #info, body.won #stats, body.won #goalLine { display: none; }
+  body.won #result { display: block; }
+  body.won #hand { color: #fff; }
+  body.won .edge { stroke: rgba(255,255,255,.5); }
+  body.won .edge.live { stroke: var(--pebble); }
+  body.won .node .flag path { fill: #fff; stroke: #fff; }
+  body.won button { border-color: #fff; }
+  body.won #levels button.sel { border-color: var(--pebble); }
+</style>
+</head>
+<body>
+<main>
+  <nav id="games" aria-label="Pebble games">
+    <a href="../">Reversible</a>
+    <a href="../erase/">Erasure</a>
+    <a href="../prices/">Prices</a>
+    <a href="../pits/">Pits</a>
+    <a href="../spooky/">Spooky</a>
+    <a href="../dag/">DAG</a>
+    <a href="./" aria-current="page">Red-blue</a>
+  </nav>
+  <div id="levels">
+    <button type="button" data-level="pyramid" data-s="4" data-opt="7">Easy</button>
+    <button type="button" data-level="butterfly" data-s="4" data-opt="11">Medium</button>
+    <button type="button" data-level="butterfly" data-s="3" data-opt="14">Hard</button>
+  </div>
+  <ul id="info">
+    <li><span class="r">Red</span> is fast memory: only a few pebbles. <span class="b">Blue</span> is slow memory: unlimited. Inputs start blue.</li>
+    <li><b>Tap</b> a node to put red on it: free if all its feeders are red, 1 I/O to load it from blue. Tap red to drop it.</li>
+    <li><b>Hold</b> a red pebble to store it in blue: 1 I/O.</li>
+    <li><b>Goal:</b> blue on every flag, in as few I/Os as you can.</li>
+  </ul>
+  <div id="stats">
+    <div class="stat" id="ioBox"><span>I/O</span><b id="io"></b></div>
+    <div class="stat"><span>Optimal</span><b id="opt"></b></div>
+    <div class="stat"><span>Red pebbles</span><b id="sCount"></b></div>
+  </div>
+  <p id="goalLine" aria-live="polite"></p>
+  <div id="result"><h1 id="verdict"></h1><p id="time"></p><p id="summary"></p></div>
+  <svg id="board" role="group" aria-label="Computation graph"></svg>
+  <div id="bar">
+    <div id="hand"></div>
+    <button id="reset" type="button">Reset</button>
+  </div>
+</main>
+<script>
+  // Red-blue pebble game (Hong and Kung, 1981): I/O complexity with a two-level
+  // memory. S red pebbles model fast memory; blue pebbles model unlimited slow
+  // memory. Inputs start with blue pebbles. Moves: compute (red on a non-input
+  // whose predecessors are all red; free), load (red on a blue node; 1 I/O),
+  // store (blue on a red node; 1 I/O), and delete a red pebble (free). The goal
+  // is a blue pebble on every output; the score is the number of I/Os.
+  // data-opt is the least I/O, found by 0-1 breadth-first search over
+  // (red set, blue set): Easy 7 (pyramid, 4 red), Medium 11 (4-point
+  // butterfly, 4 red), Hard 14 (same butterfly, 3 red). The butterfly needs at
+  // least 8 (load 4 inputs, store 4 outputs); the rest is spilling.
+  const HOLD_MS = 450;
+  const SVG = 'http://www.w3.org/2000/svg';
+  const CX = 152, TOP = 52, DY = 72, WIDTH = 300;
+  const $ = id => document.getElementById(id);
+  const board = $('board'), hand = $('hand');
+  const levelButtons = [...document.querySelectorAll('#levels button')];
+
+  // Graphs: rows from the bottom (inputs) up, predecessors of every node, and
+  // the outputs. 'mean' puts a node over its feeders; 'even' spaces rows evenly.
+  function pyramid(base) {
+    const rows = [], preds = [];
+    let id = 0;
+    for (let w = base; w >= 1; w--) {
+      const row = [];
+      for (let j = 0; j < w; j++) {
+        preds.push(rows.length ? [rows[rows.length - 1][j], rows[rows.length - 1][j + 1]] : []);
+        row.push(id++);
+      }
+      rows.push(row);
+    }
+    return { rows, preds, outputs: [id - 1], layout: 'mean' };
+  }
+  // The 4-point FFT butterfly: stage k pairs node j with node j xor 2^k.
+  function butterfly() {
+    const rows = [[0, 1, 2, 3]], preds = [[], [], [], []];
+    for (let k = 0; k < 2; k++) {
+      const prev = rows[rows.length - 1], row = [];
+      for (let j = 0; j < 4; j++) {
+        preds.push([prev[j], prev[j ^ (1 << k)]].sort((a, b) => a - b));
+        row.push(preds.length - 1);
+      }
+      rows.push(row);
+    }
+    return { rows, preds, outputs: rows[2].slice(), layout: 'even' };
+  }
+  const GRAPHS = { pyramid: pyramid(4), butterfly: butterfly() };
+
+  let G, n, S, OPT, levelName, R;
+  let red, blue, io, won, nodes, edges, startedAt, solveMs;
+  let holdTimer = null, holdNode = null, suppressClick = false;
+
+  // ---------- Board ----------
+
+  function layout() {
+    const pos = [];
+    const widest = Math.max(...G.rows.map(r => r.length));
+    const gap = Math.min(80, WIDTH / (widest - 0.4));
+    R = Math.min(21, gap / 2 - 6);
+    G.rows.forEach((row, r) => {
+      const y = TOP + (G.rows.length - 1 - r) * DY;
+      row.forEach((v, k) => {
+        const x = G.layout === 'mean' && G.preds[v].length
+          ? G.preds[v].reduce((s, p) => s + pos[p].x, 0) / G.preds[v].length
+          : CX + (k - (row.length - 1) / 2) * gap;
+        pos[v] = { x, y };
+      });
+    });
+    return pos;
+  }
+
+  function build() {
+    const pos = layout();
+    board.setAttribute('viewBox', '-18 4 340 ' + (TOP + (G.rows.length - 1) * DY + R + 20));
+    let html = '';
+    G.preds.forEach((ps, v) => ps.forEach(p => {
+      html += '<line class="edge" data-from="' + p + '" x1="' + pos[p].x + '" y1="' + pos[p].y + '" x2="' + pos[v].x + '" y2="' + pos[v].y + '"/>';
+    }));
+    board.innerHTML = html;
+    edges = [...board.querySelectorAll('.edge')];
+    nodes = [];
+    for (let v = 0; v < n; v++) {
+      const { x, y } = pos[v], out = G.outputs.includes(v);
+      const g = document.createElementNS(SVG, 'g');
+      g.setAttribute('class', out ? 'node goal' : 'node');
+      g.style.transformBox = 'fill-box';
+      g.setAttribute('role', 'button');
+      g.setAttribute('aria-label', (G.preds[v].length ? 'Node ' : 'Input ') + (v + 1));
+      g.innerHTML =
+        '<rect class="hit" x="' + (x - R - 7) + '" y="' + (y - R - 7) + '" width="' + (2 * R + 14) + '" height="' + (2 * R + 14) + '"/>' +
+        '<circle class="ring" cx="' + x + '" cy="' + y + '" r="' + R + '"/>' +
+        '<circle class="dot" cx="' + x + '" cy="' + y + '" r="' + (R - 8) + '"/>' +
+        '<circle class="hold" cx="' + x + '" cy="' + y + '" r="' + R + '" pathLength="100" transform="rotate(-90 ' + x + ' ' + y + ')"/>' +
+        // Outputs carry a small flag just above, so it never hides the pebbles.
+        (out ? '<g class="flag" transform="translate(' + (x + R - 6) + ' ' + (y - R - 15) + ') scale(.7)">' +
+               '<path d="M2 1v22" stroke-width="2.8" stroke-linecap="round" fill="none"/>' +
+               '<path d="M3.5 2h13l-3.5 4.5 3.5 4.5h-13z" stroke="none"/></g>' : '');
+      g.addEventListener('pointerdown', () => press(v));
+      for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) g.addEventListener(ev, release);
+      g.addEventListener('click', () => { if (suppressClick) { suppressClick = false; return; } tap(v); });
+      board.appendChild(g);
+      nodes.push(g);
+    }
+  }
+
+  // ---------- Play ----------
+
+  function computable(v) { return G.preds[v].length > 0 && G.preds[v].every(p => red[p]); }
+  function inHand() { return S - red.filter(Boolean).length; }
+  function stored() { return G.outputs.filter(v => blue[v]).length; }
+
+  function flash(el) {
+    el.classList.remove('bad'); void el.getBBox?.(); void el.offsetWidth;
+    el.classList.add('bad');
+    clearTimeout(el.badTimer);
+    el.badTimer = setTimeout(() => el.classList.remove('bad'), 450);
+  }
+
+  function act(cost) {
+    if (startedAt == null) startedAt = performance.now();
+    io += cost;
+    if (stored() === G.outputs.length) {
+      won = true; solveMs = performance.now() - startedAt;
+      // The board can sit below a phone's fold, so bring the result into view.
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    render();
+  }
+
+  // Tap: compute or load a red pebble, or drop one.
+  function tap(v) {
+    if (won) return;
+    if (red[v]) { red[v] = false; act(0); return; }
+    if (inHand() === 0 && (computable(v) || blue[v])) { flash(nodes[v]); flash(hand); return; }
+    if (computable(v)) { red[v] = true; act(0); return; }
+    if (blue[v]) { red[v] = true; act(1); return; }
+    flash(nodes[v]);
+  }
+
+  // Hold a red pebble: store it in slow memory.
+  function press(v) {
+    suppressClick = false;
+    release();
+    if (won || !red[v]) return;
+    holdNode = nodes[v];
+    holdNode.classList.add('holding');
+    holdTimer = setTimeout(() => {
+      endHold();
+      suppressClick = true;
+      if (blue[v]) { flash(nodes[v]); return; }
+      blue[v] = true;
+      act(1);
+    }, HOLD_MS);
+  }
+  function release() { clearTimeout(holdTimer); endHold(); }
+  function endHold() { if (holdNode) holdNode.classList.remove('holding'); holdNode = null; }
+
+  function clock(ms) {
+    const t = Math.round(ms / 100), m = Math.floor(t / 600), sec = ((t % 600) / 10).toFixed(1);
+    return m ? m + ':' + sec.padStart(4, '0') : sec + ' s';
+  }
+
+  function render() {
+    for (let v = 0; v < n; v++) {
+      nodes[v].classList.toggle('red', red[v]);
+      nodes[v].classList.toggle('blue', blue[v]);
+      nodes[v].classList.toggle('ready', !red[v] && computable(v));
+    }
+    edges.forEach(e => e.classList.toggle('live', red[Number(e.dataset.from)]));
+    const held = inHand();
+    let dots = '';
+    for (let k = 0; k < S; k++) dots += '<i class="' + (k < held ? '' : 'used') + '"></i>';
+    hand.innerHTML = dots + '<span>' + held + ' red in hand</span>';
+
+    $('io').textContent = io;
+    $('ioBox').classList.toggle('past', io > OPT);
+    const m = G.outputs.length;
+    $('goalLine').textContent = m === 1
+      ? (stored() ? 'The flag is stored in blue' : 'Get a blue pebble on the flag')
+      : 'Flags stored in blue: ' + stored() + ' of ' + m;
+
+    document.body.classList.toggle('won', won);
+    if (won) {
+      $('verdict').textContent = io === OPT ? 'Optimal!' : 'Solved';
+      $('time').textContent = clock(solveMs);
+      $('summary').textContent = levelName + ' · ' + io + ' I/O · optimal ' + OPT;
+    }
+  }
+
+  function reset() {
+    release();
+    red = new Array(n).fill(false);
+    blue = G.preds.map(ps => ps.length === 0);
+    io = 0;
+    won = false;
+    startedAt = null;
+    render();
+  }
+
+  function setLevel(btn) {
+    G = GRAPHS[btn.dataset.level];
+    n = G.preds.length;
+    S = Number(btn.dataset.s);
+    OPT = Number(btn.dataset.opt);
+    levelName = btn.textContent;
+    levelButtons.forEach(b => b.classList.toggle('sel', b === btn));
+    $('opt').textContent = OPT;
+    $('sCount').textContent = S;
+    build();
+    reset();
+  }
+
+  // A press that starts on the board must never count as a Reset or level tap:
+  // the winning move swaps the rules for the result and shifts the page under the finger.
+  let pressOnBoard = false;
+  document.addEventListener('pointerdown', e => { pressOnBoard = board.contains(e.target); }, true);
+  const buttonTap = fn => e => { if (pressOnBoard && e.detail !== 0) return; fn(); };
+
+  levelButtons.forEach(b => b.addEventListener('click', buttonTap(() => setLevel(b))));
+  $('reset').addEventListener('click', buttonTap(reset));
+  board.addEventListener('contextmenu', e => e.preventDefault());
+  setLevel(levelButtons[0]);
+</script>
+</body>
+</html>

@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Pebble Game: DAGs</title>
+<style>
+  :root {
+    --ink: #1F2329; --muted: #7A808A; --faint: #D5D9DF; --slot: #B8BEC6;
+    --pebble: #1A1C20; --red: #E31A1C; --green: #009E73; --warn: #D55E00;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overscroll-behavior: none; }
+  body {
+    background: #fff; color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    touch-action: manipulation; user-select: none; -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  main {
+    max-width: 480px; min-height: 100%; margin: 0 auto; padding: 20px 16px 24px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  button {
+    font: inherit; font-size: 16px; font-weight: 600; padding: 10px 18px;
+    background: #fff; color: var(--ink); border: 2px solid var(--faint); border-radius: 10px;
+  }
+
+  /* Menu linking the games; the current one is underlined. */
+  #games { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px 4px; margin-top: -6px; font-size: 14px; font-weight: 650; }
+  #games a {
+    flex: 1; text-align: center; padding: 6px 0 7px; text-decoration: none;
+    color: var(--muted); border-bottom: 2px solid var(--faint);
+  }
+  #games a[aria-current] { color: var(--ink); border-bottom: 3px solid var(--pebble); padding-bottom: 6px; }
+  body.won #games a { color: rgba(255,255,255,.8); border-bottom-color: rgba(255,255,255,.45); }
+  body.won #games a[aria-current] { color: #fff; border-bottom-color: #fff; }
+
+  #levels { display: flex; gap: 8px; }
+  #levels button { flex: 1; padding: 10px 0; }
+  #levels button.sel { background: var(--pebble); border-color: var(--pebble); color: #fff; }
+
+  #info {
+    margin: 0; list-style: none;
+    background: #F4F5F7; border: 2px solid var(--faint); border-radius: 12px;
+    padding: 12px 14px; font-size: 16px; line-height: 1.35;
+  }
+  #info li { position: relative; padding-left: 18px; }
+  #info li + li { margin-top: 7px; }
+  #info li::before {
+    content: ""; position: absolute; left: 2px; top: .5em;
+    width: 7px; height: 7px; border-radius: 50%; background: var(--pebble);
+  }
+
+  #stats { display: flex; gap: 8px; }
+  .stat {
+    flex: 1; text-align: center; padding: 8px 4px;
+    border: 2px solid var(--faint); border-radius: 12px;
+  }
+  .stat span { display: block; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .stat b { display: block; font-size: 26px; line-height: 1.15; font-variant-numeric: tabular-nums; }
+  #movesBox.past { border-color: var(--warn); }
+  #movesBox.past b { color: var(--warn); }
+
+  #goal { display: flex; gap: 8px; margin: 0 0 6px; padding: 0; list-style: none; }
+  #goal li {
+    flex: 1; display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+    border: 2px solid var(--faint); border-radius: 12px;
+    font-size: 15px; font-weight: 600; line-height: 1.2; color: var(--muted);
+  }
+  #goal li::before {
+    content: attr(data-n); flex: none; width: 24px; height: 24px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 14px;
+    border: 2px solid currentColor;
+  }
+  #goal li.now { color: var(--ink); border-color: var(--pebble); }
+  #goal li.ok { color: var(--green); border-color: var(--green); }
+  #goal li.ok::before { content: "\2713"; background: var(--green); border-color: var(--green); color: #fff; }
+  #goal li.urgent { background: var(--pebble); border-color: var(--pebble); color: #fff; }
+
+  #result { display: none; text-align: center; color: #fff; }
+  #result h1 { margin: 0; font-size: 56px; line-height: 1.1; }
+  #result p { margin: 4px 0 0; font-size: 22px; }
+  #result #time { font-size: 36px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  #board { display: block; width: 100%; height: auto; }
+  /* An edge is drawn dark once the node it comes from holds a pebble. */
+  .edge { stroke: var(--faint); stroke-width: 3; stroke-linecap: round; }
+  .edge.live { stroke: var(--pebble); stroke-width: 4.5; }
+  .input line { stroke: var(--pebble); stroke-width: 4.5; stroke-linecap: round; }
+  .input circle { fill: var(--pebble); }
+  .node { cursor: pointer; }
+  .node .hit { fill: transparent; }
+  /* Nodes whose feeders are all pebbled are outlined dark: those are the ones you can tap. */
+  .node .ring { fill: #fff; stroke: var(--slot); stroke-width: 3.5; }
+  .node.ready .ring { stroke: var(--pebble); stroke-width: 4; }
+  .node .dot { fill: var(--pebble); display: none; }
+  .node.on .dot { display: block; }
+  .node.on .flag { display: none; }
+  .node.goal .ring { stroke-dasharray: 6 4; }
+  .node .flag path { fill: var(--ink); stroke: var(--ink); }
+  .node.bad .ring { fill: var(--red); stroke: var(--red); }
+  .node.tidy .ring { stroke: var(--warn); animation: tidy 1.1s ease-in-out infinite; }
+  @keyframes tidy { 50% { stroke-width: 8; } }
+
+  #bar { display: flex; align-items: center; justify-content: space-between; }
+  #hand { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 10px; font-size: 16px; }
+  #hand.bad { background: var(--red); color: #fff; }
+  #hand i {
+    flex: none; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--pebble); border: 2px solid var(--pebble);
+  }
+  #hand i.used { background: transparent; border-color: var(--faint); }
+  #hand span { white-space: nowrap; }
+
+  body.won { background: var(--green); }
+  body.won #info, body.won #stats, body.won #goal { display: none; }
+  body.won #result { display: block; }
+  body.won #hand { color: #fff; }
+  body.won .edge { stroke: rgba(255,255,255,.5); }
+  body.won .edge.live, body.won .input line { stroke: var(--pebble); }
+  body.won button { border-color: #fff; }
+  body.won #levels button.sel { border-color: var(--pebble); }
+</style>
+</head>
+<body>
+<main>
+  <nav id="games" aria-label="Pebble games">
+    <a href="../">Reversible</a>
+    <a href="../erase/">Erasure</a>
+    <a href="../prices/">Prices</a>
+    <a href="../pits/">Pits</a>
+    <a href="../spooky/">Spooky</a>
+    <a href="./" aria-current="page">DAG</a>
+    <a href="../redblue/">Red-blue</a>
+  </nav>
+  <div id="levels">
+    <button type="button" data-level="pyramid">Pyramid</button>
+    <button type="button" data-level="tree">Tree</button>
+    <button type="button" data-level="puzzle">Puzzle</button>
+  </div>
+  <ul id="info">
+    <li><b>Tap</b> a node to place or remove a pebble, only when every node feeding it has one. The bottom row reads the inputs, which are always there.</li>
+    <li>You only have the pebbles shown below the board.</li>
+    <li><b>Goal:</b> both steps below, in as few moves as you can.</li>
+  </ul>
+  <div id="stats">
+    <div class="stat" id="movesBox"><span>Moves</span><b id="moves"></b></div>
+    <div class="stat"><span>Optimal</span><b id="opt"></b></div>
+    <div class="stat"><span>Pebbles</span><b id="mm"></b></div>
+  </div>
+  <ol id="goal">
+    <li id="g1" data-n="1">Pebble the flag</li>
+    <li id="g2" data-n="2" aria-live="polite"></li>
+  </ol>
+  <div id="result"><h1 id="verdict"></h1><p id="time"></p><p id="summary"></p></div>
+  <svg id="board" role="group" aria-label="Pebbling graph"></svg>
+  <div id="bar">
+    <div id="hand"></div>
+    <button id="reset" type="button">Reset</button>
+  </div>
+</main>
+<script>
+  // Reversible (Bennett) pebbling on small DAGs. Inputs are permanent and free,
+  // as spot 0 is on the line: the bottom row reads them directly. A node may
+  // gain or lose a pebble only while every node feeding it holds one. The game
+  // ends when exactly the output holds a pebble. Each level gets the fewest
+  // pebbles that can do that, and the page finds the fewest moves at that
+  // count by breadth-first search over sets of pebbled nodes.
+  // Levels (pebbles, optimal moves; with one more pebble): Pyramid 7, 47 (43);
+  // Tree 6, 53 (45); Puzzle 7, 65 (45). The puzzle came from a search over
+  // random layered DAGs for the biggest saving from one extra pebble.
+  const SVG = 'http://www.w3.org/2000/svg';
+  const CX = 152, TOP = 28, DY = 60, WIDTH = 318;
+  const $ = id => document.getElementById(id);
+  const board = $('board'), hand = $('hand');
+  const levelButtons = [...document.querySelectorAll('#levels button')];
+
+  // Each level: rows from the bottom up (node ids, left to right), predecessors
+  // of every node, and how to place nodes ('mean' puts a node over its feeders).
+  function pyramid(base) {
+    const rows = [], preds = [];
+    let id = 0;
+    for (let w = base; w >= 1; w--) {
+      const row = [];
+      for (let j = 0; j < w; j++) {
+        preds.push(rows.length ? [rows[rows.length - 1][j], rows[rows.length - 1][j + 1]] : []);
+        row.push(id++);
+      }
+      rows.push(row);
+    }
+    return { rows, preds, layout: 'mean' };
+  }
+  function tree(leaves) {
+    const rows = [], preds = [];
+    let id = 0;
+    for (let w = leaves; w >= 1; w /= 2) {
+      const row = [];
+      for (let j = 0; j < w; j++) {
+        preds.push(rows.length ? [rows[rows.length - 1][2 * j], rows[rows.length - 1][2 * j + 1]] : []);
+        row.push(id++);
+      }
+      rows.push(row);
+    }
+    return { rows, preds, layout: 'mean' };
+  }
+  const LEVELS = {
+    pyramid: pyramid(5),
+    tree: tree(8),
+    puzzle: {
+      rows: [[0, 2, 1], [4, 3, 5], [7, 6, 8], [11, 10, 9], [13, 12], [14]],
+      preds: [[], [], [], [0, 1], [0, 2], [1, 2], [3, 4], [3, 4], [3, 5], [6, 8], [6], [6, 7], [9, 10], [10, 11], [12, 13]],
+      layout: 'even',
+    },
+  };
+
+  let G, n, OUT, P, OPT, levelName, R;
+  let on, moves, won, nodes, edges, startedAt, solveMs;
+
+  // ---------- Analysis ----------
+
+  // Fewest moves from nothing to exactly the outputs, with at most cap pebbles.
+  function fewestMoves(preds, outputs, cap) {
+    const size = 1 << preds.length, goal = outputs.reduce((s, v) => s | 1 << v, 0);
+    const need = preds.map(ps => ps.reduce((s, v) => s | 1 << v, 0));
+    const dist = new Int32Array(size).fill(-1), q = new Int32Array(size);
+    let head = 0, tail = 0;
+    dist[0] = 0; q[tail++] = 0;
+    while (head < tail) {
+      const s = q[head++];
+      if (s === goal) return dist[s];
+      let c = 0; for (let t = s; t; t &= t - 1) c++;
+      for (let v = 0; v < preds.length; v++) {
+        if ((s & need[v]) !== need[v]) continue;
+        const bit = 1 << v;
+        if (!(s & bit) && c >= cap) continue;
+        const t = s ^ bit;
+        if (dist[t] < 0) { dist[t] = dist[s] + 1; q[tail++] = t; }
+      }
+    }
+    return null;
+  }
+
+  // ---------- Board ----------
+
+  function layout() {
+    const pos = [];
+    const widest = Math.max(...G.rows.map(r => r.length));
+    const gap = Math.min(72, WIDTH / widest);
+    R = Math.min(19, gap / 2 - 4);
+    G.rows.forEach((row, r) => {
+      const y = TOP + (G.rows.length - 1 - r) * DY;
+      row.forEach((v, k) => {
+        const x = G.layout === 'mean' && G.preds[v].length
+          ? G.preds[v].reduce((s, p) => s + pos[p].x, 0) / G.preds[v].length
+          : CX + (k - (row.length - 1) / 2) * (G.layout === 'mean' ? gap : Math.min(96, WIDTH / row.length));
+        pos[v] = { x, y };
+      });
+    });
+    return pos;
+  }
+
+  function build() {
+    const pos = layout();
+    const h = TOP + (G.rows.length - 1) * DY + R + 30;
+    board.setAttribute('viewBox', '-18 4 340 ' + h);
+    let html = '';
+    edges = [];
+    G.preds.forEach((ps, v) => ps.forEach(p => {
+      html += '<line class="edge" data-from="' + p + '" x1="' + pos[p].x + '" y1="' + pos[p].y + '" x2="' + pos[v].x + '" y2="' + pos[v].y + '"/>';
+    }));
+    // Each bottom node reads the always-available inputs, drawn as a short stub.
+    G.rows[0].forEach(v => {
+      const { x, y } = pos[v];
+      html += '<g class="input"><line x1="' + x + '" y1="' + y + '" x2="' + x + '" y2="' + (y + R + 14) + '"/>' +
+              '<circle cx="' + x + '" cy="' + (y + R + 14) + '" r="5.5"/></g>';
+    });
+    board.innerHTML = html;
+    edges = [...board.querySelectorAll('.edge')];
+    nodes = [];
+    for (let v = 0; v < n; v++) {
+      const { x, y } = pos[v], out = OUT.includes(v);
+      const g = document.createElementNS(SVG, 'g');
+      g.setAttribute('class', out ? 'node goal' : 'node');
+      g.setAttribute('role', 'button');
+      g.setAttribute('aria-label', out ? 'Output node' : 'Node ' + (v + 1));
+      g.innerHTML =
+        '<rect class="hit" x="' + (x - R - 6) + '" y="' + (y - R - 6) + '" width="' + (2 * R + 12) + '" height="' + (2 * R + 12) + '"/>' +
+        '<circle class="ring" cx="' + x + '" cy="' + y + '" r="' + R + '"/>' +
+        (out ? '<g class="flag" transform="translate(' + (x - 6) + ' ' + (y - 10) + ') scale(.85)">' +
+               '<path d="M2 1v22" stroke-width="2.6" stroke-linecap="round" fill="none"/>' +
+               '<path d="M3.5 2h13l-3.5 4.5 3.5 4.5h-13z" stroke="none"/></g>' : '') +
+        '<circle class="dot" cx="' + x + '" cy="' + y + '" r="' + (R - 7) + '"/>';
+      g.addEventListener('click', () => tap(v));
+      board.appendChild(g);
+      nodes.push(g);
+    }
+  }
+
+  // ---------- Play ----------
+
+  function ready(v) { return G.preds[v].every(p => on[p]); }
+  function inHand() { return P - on.filter(Boolean).length; }
+  function stray() { let c = 0; for (let v = 0; v < n; v++) if (on[v] && !OUT.includes(v)) c++; return c; }
+  function outputsDone() { return OUT.every(v => on[v]); }
+
+  function flash(el) {
+    el.classList.add('bad');
+    clearTimeout(el.badTimer);
+    el.badTimer = setTimeout(() => el.classList.remove('bad'), 450);
+  }
+
+  function tap(v) {
+    if (won) return;
+    if (!ready(v)) { flash(nodes[v]); return; }
+    if (!on[v] && inHand() === 0) { flash(nodes[v]); flash(hand); return; }
+    if (moves === 0) startedAt = performance.now();
+    on[v] = !on[v];
+    moves++;
+    if (outputsDone() && stray() === 0) {
+      won = true; solveMs = performance.now() - startedAt;
+      // The board is taller than a phone screen, so bring the result into view.
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    render();
+  }
+
+  function clock(ms) {
+    const t = Math.round(ms / 100), m = Math.floor(t / 600), sec = ((t % 600) / 10).toFixed(1);
+    return m ? m + ':' + sec.padStart(4, '0') : sec + ' s';
+  }
+
+  function render() {
+    const flagged = outputsDone(), extra = stray();
+    for (let v = 0; v < n; v++) {
+      nodes[v].classList.toggle('on', on[v]);
+      nodes[v].classList.toggle('ready', ready(v));
+      nodes[v].classList.toggle('tidy', flagged && on[v] && !OUT.includes(v));
+    }
+    edges.forEach(e => e.classList.toggle('live', on[Number(e.dataset.from)]));
+    const held = inHand();
+    let dots = '';
+    for (let k = 0; k < P; k++) dots += '<i class="' + (k < held ? '' : 'used') + '"></i>';
+    hand.innerHTML = dots + '<span>' + held + ' in hand</span>';
+
+    $('moves').textContent = moves;
+    $('movesBox').classList.toggle('past', moves > OPT);
+    $('g1').className = flagged ? 'ok' : 'now';
+    $('g2').className = flagged ? 'urgent' : '';
+    $('g2').textContent = flagged ? 'Now clear the other ' + extra + (extra === 1 ? ' pebble' : ' pebbles') : 'Then clear every other pebble';
+
+    document.body.classList.toggle('won', won);
+    if (won) {
+      $('verdict').textContent = moves === OPT ? 'Optimal!' : 'Solved';
+      $('time').textContent = clock(solveMs);
+      $('summary').textContent = levelName + ' · ' + moves + ' moves · optimal ' + OPT;
+    }
+  }
+
+  function reset() {
+    on = new Array(n).fill(false);
+    moves = 0;
+    won = false;
+    render();
+  }
+
+  function setLevel(btn) {
+    G = LEVELS[btn.dataset.level];
+    n = G.preds.length;
+    OUT = G.rows[G.rows.length - 1].slice();
+    // Fewest pebbles first, then the fewest moves with exactly that many.
+    for (P = OUT.length; (OPT = fewestMoves(G.preds, OUT, P)) === null; P++);
+    levelName = btn.textContent;
+    levelButtons.forEach(b => b.classList.toggle('sel', b === btn));
+    $('opt').textContent = OPT;
+    $('mm').textContent = P;
+    build();
+    reset();
+  }
+
+  // A press that starts on the board must never count as a Reset or level tap:
+  // the winning move swaps the rules for the result and shifts the page under the finger.
+  let pressOnBoard = false;
+  document.addEventListener('pointerdown', e => { pressOnBoard = board.contains(e.target); }, true);
+  const buttonTap = fn => e => { if (pressOnBoard && e.detail !== 0) return; fn(); };
+
+  levelButtons.forEach(b => b.addEventListener('click', buttonTap(() => setLevel(b))));
+  $('reset').addEventListener('click', buttonTap(reset));
+  board.addEventListener('contextmenu', e => e.preventDefault());
+  setLevel(levelButtons[0]);
+</script>
+</body>
+</html>

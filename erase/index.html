@@ -26,6 +26,16 @@
     background: #fff; color: var(--ink); border: 2px solid var(--faint); border-radius: 10px;
   }
 
+  /* Menu linking the four games; the current one is underlined. */
+  #games { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px 4px; margin-top: -6px; font-size: 14px; font-weight: 650; }
+  #games a {
+    flex: 1; text-align: center; padding: 6px 0 7px; text-decoration: none;
+    color: var(--muted); border-bottom: 2px solid var(--faint);
+  }
+  #games a[aria-current] { color: var(--ink); border-bottom: 3px solid var(--pebble); padding-bottom: 6px; }
+  body.won #games a, body.done #games a { color: rgba(255,255,255,.8); border-bottom-color: rgba(255,255,255,.45); }
+  body.won #games a[aria-current], body.done #games a[aria-current] { color: #fff; border-bottom-color: #fff; }
+
   #levels { display: flex; gap: 8px; }
   #levels button { flex: 1; padding: 10px 0; }
   #levels button.sel { background: var(--pebble); border-color: var(--pebble); color: #fff; }
@@ -106,6 +116,14 @@
   .node.goal .ring { stroke-dasharray: 7 5; }
   .node.fixed .ring { fill: var(--pebble); }
   .node.erased .ring { fill: var(--erase); stroke: var(--erase); }
+  /* Holding a pebble: an orange ring traces the pit's outline until the erase
+     fires. It waits 120 ms so quick taps don't flicker; 120 + 330 = HOLD_MS. */
+  .node .hold {
+    fill: none; stroke: var(--erase); stroke-width: 7; stroke-linecap: round;
+    stroke-dasharray: 100; stroke-dashoffset: 100; opacity: 0; pointer-events: none;
+  }
+  .node.holding .hold { animation: holdfill 330ms linear 120ms forwards; }
+  @keyframes holdfill { from { opacity: 1; stroke-dashoffset: 100; } to { opacity: 1; stroke-dashoffset: 0; } }
   .node.bad .ring { fill: var(--red); stroke: var(--red); }
   .node text { font-size: 15px; font-weight: 650; fill: var(--muted); text-anchor: middle; }
   .node.bad text { fill: var(--red); }
@@ -137,10 +155,19 @@
 </head>
 <body>
 <main>
+  <nav id="games" aria-label="Pebble games">
+    <a href="../">Reversible</a>
+    <a href="./" aria-current="page">Erasure</a>
+    <a href="../prices/">Prices</a>
+    <a href="../pits/">Pits</a>
+    <a href="../spooky/">Spooky</a>
+    <a href="../dag/">DAG</a>
+    <a href="../redblue/">Red-blue</a>
+  </nav>
   <div id="levels">
-    <button type="button" data-p="3" data-n="6" data-lam="4" data-budget="18" data-row="4">Easy</button>
-    <button type="button" data-p="4" data-n="8" data-lam="5" data-budget="21" data-row="4">Medium</button>
-    <button type="button" data-p="4" data-n="16" data-lam="5" data-budget="47" data-row="5">Hard</button>
+    <button type="button" data-p="3" data-n="6" data-lam="4" data-budget="18" data-opt="16" data-row="4">Easy</button>
+    <button type="button" data-p="4" data-n="8" data-lam="5" data-budget="21" data-opt="21" data-row="4">Medium</button>
+    <button type="button" data-p="4" data-n="16" data-lam="5" data-budget="47" data-opt="47" data-row="5">Hard</button>
   </div>
   <ul id="info">
     <li>A tap only works when the spot before has a pebble. A hold works anywhere.</li>
@@ -178,6 +205,7 @@
   // Level settings are on the buttons above. Medium sits on the memory wall
   // (flag = 2^(P-1)): its budget is the optimum, one erasure at the midpoint.
   // Hard's budget is also the optimum: every cheapest solution erases 4, 7, 10, 13.
+  // data-opt is the cheapest clean finish, found by search: 16, 21, 47.
   const HOLD_MS = 450;
   const X0 = 40, SPAN = 225, Y0 = 40, DY = 84;
   const SVG = 'http://www.w3.org/2000/svg';
@@ -185,9 +213,9 @@
   const board = $('board'), hand = $('hand');
   const levelButtons = [...document.querySelectorAll('#levels button')];
 
-  let P, N, LAM, BUDGET, levelName, PER_ROW, DX, R;
+  let P, N, LAM, BUDGET, OPT, levelName, PER_ROW, DX, R;
   let pebbled, moves, erasures, done, lost, nodes, startedAt, solveMs;
-  let holdTimer = null, suppressClick = false;
+  let holdTimer = null, holdNode = null, suppressClick = false;
 
   // Spots 0..N snake along one line: rows alternate left-to-right and right-to-left.
   // Spot 0 is permanently pebbled and does not use one of the player's pebbles.
@@ -219,6 +247,7 @@
             '<path d="M3.5 2h13l-3.5 4.5 3.5 4.5h-13z" fill="#1F2329"/></g>'
           : '') +
         '<circle class="dot" cx="' + x + '" cy="' + y + '" r="' + (R - 9) + '"/>' +
+        '<circle class="hold" cx="' + x + '" cy="' + y + '" r="' + R + '" pathLength="100" transform="rotate(-90 ' + x + ' ' + y + ')"/>' +
         '<text x="' + x + '" y="' + (y + R + 19) + '">' + i + '</text>';
       g.addEventListener('pointerdown', () => press(i));
       for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) g.addEventListener(ev, release);
@@ -271,9 +300,12 @@
   // Hold: erase a pebble from anywhere, at price lambda.
   function press(i) {
     suppressClick = false;
-    clearTimeout(holdTimer);
+    release();
     if (done || i === 0 || !pebbled[i]) return;
+    holdNode = nodes[i];
+    holdNode.classList.add('holding');
     holdTimer = setTimeout(() => {
+      endHold();
       suppressClick = true;
       if (left() < LAM) { flash(nodes[i], 'bad'); flash($('budgetBox'), 'bad'); return; }
       act();
@@ -284,7 +316,8 @@
       render();
     }, HOLD_MS);
   }
-  function release() { clearTimeout(holdTimer); }
+  function release() { clearTimeout(holdTimer); endHold(); }
+  function endHold() { if (holdNode) holdNode.classList.remove('holding'); holdNode = null; }
 
   function clock(ms) {
     const t = Math.round(ms / 100), m = Math.floor(t / 600), sec = ((t % 600) / 10).toFixed(1);
@@ -321,18 +354,18 @@
     document.body.classList.toggle('won', done && !lost);
     document.body.classList.toggle('lost', lost);
     if (done) {
-      $('verdict').textContent = lost ? 'Out of budget' : 'Solved';
+      $('verdict').textContent = lost ? 'Out of budget' : c === OPT ? 'Optimal!' : 'Solved';
       $('time').textContent = lost ? '' : clock(solveMs);
       $('summary').textContent = lost
         ? (flagged ? 'Flag reached, but ' + extra + pebbles + ' still on the line' : 'The flag was not reached')
-        : levelName + ' · ' + rest + ' of ' + BUDGET + ' budget left';
+        : levelName + ' · cost ' + c + ' · optimal ' + OPT;
       $('detail').textContent = moves + ' moves + ' + erasures + (erasures === 1 ? ' erasure' : ' erasures') +
         ' × ' + LAM + ' = ' + c;
     }
   }
 
   function reset() {
-    clearTimeout(holdTimer);
+    release();
     pebbled = new Array(N + 1).fill(false);
     pebbled[0] = true;
     moves = 0;
@@ -347,6 +380,7 @@
     N = Number(btn.dataset.n);
     LAM = Number(btn.dataset.lam);
     BUDGET = Number(btn.dataset.budget);
+    OPT = Number(btn.dataset.opt);
     PER_ROW = Number(btn.dataset.row);
     DX = SPAN / (PER_ROW - 1);
     R = Math.min(23, DX / 2 - 6);
