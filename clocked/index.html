@@ -139,8 +139,7 @@
   /* Stars, sharing and feel (the same block on every game page). */
   #levels .mark { margin-left: 5px; font-size: 14px; }
   #levels .mark.star { color: #E0A800; }
-  #levels .mark.tick { color: var(--green); }
-  #levels button.sel .mark.tick { color: #8FE0C4; }
+  #levels .mark.done { color: #E0A800; }
   main #best { margin-top: 6px; font-size: 17px; font-weight: 650; }
   main #share {
     margin-top: 12px; padding: 7px 22px; font-size: 15px;
@@ -251,14 +250,15 @@
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {} };
     const starred = r => !!r && r.best <= r.opt;
 
-    // Level buttons get a check once solved and a star once solved optimally.
+    // Level buttons get an outline star once finished and a filled star once
+    // finished optimally, so the goal is to fill every star.
     // (The games list page reads the same saved progress to show stars per game.)
     function marks() {
       document.querySelectorAll('#levels button').forEach(b => {
         const r = (data[KIT.game] || {})[b.dataset.name];
         b.innerHTML = b.dataset.name + (!r ? '' : starred(r)
           ? '<span class="mark star" aria-label="optimal">★</span>'
-          : '<span class="mark tick" aria-label="solved">✓</span>');
+          : '<span class="mark done" aria-label="finished">☆</span>');
       });
     }
 
@@ -311,7 +311,8 @@
         save();
         marks();
         if (optimal && !starred(old)) line = 'New star ★';
-        else if (!optimal && old && score < old.best) line = 'New best';
+        else if (!optimal && !old) line = '☆ earned · match the optimum to fill it';
+        else if (!optimal && score < old.best) line = 'New best';
         else if (!optimal && old) line = 'Your best: ' + (KIT.unit === 'cost' ? 'cost ' : '') + old.best;
       }
       el('best').textContent = line;

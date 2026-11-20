@@ -29,9 +29,11 @@
   section:first-of-type { margin-top: 18px; }
   h2 { display: flex; align-items: baseline; justify-content: space-between; margin: 0 0 6px; font-size: 19px; }
   h2 a { color: inherit; text-decoration: none; }
-  /* Stars earned in this browser, one per level solved optimally. */
-  .stars { font-size: 15px; letter-spacing: 2px; color: var(--faint); }
-  .stars b { font-weight: inherit; color: var(--gold); }
+  /* One star per level: faint until finished, outline once finished, filled once optimal. */
+  .stars { font-size: 16px; letter-spacing: 3px; color: var(--faint); }
+  .stars .done, .stars .opt { color: var(--gold); }
+  .tally { margin: 12px 0 0; font-size: 15px; color: var(--muted); }
+  .tally b { color: var(--ink); }
   section p { margin: 0 0 6px; font-size: 16px; line-height: 1.45; }
   .refs { font-size: 14px; color: var(--muted); }
   .refs a { color: inherit; }
@@ -43,6 +45,7 @@
   <span class="kicker">Pebble Games</span>
   <h1>All games</h1>
   <p class="lead">A pebble is a value held in memory. Pebble games are a standard way to reason about how memory, time and energy trade off in computation. Each game adds one constraint that matters in real machines. New here? <a href="../">Start with Reversible</a>.</p>
+  <p class="tally">☆ finished · ★ optimal · <span id="total"></span></p>
   <section>
     <h2><a href="../">Reversible</a><span class="stars" data-game="reversible"></span></h2>
     <p>Erasing information costs heat. Uncomputing avoids erasure, but needs extra memory, which can be traded for extra time.</p>
@@ -91,16 +94,28 @@
   </section>
 </main>
 <script>
-  // Stars come from the progress the games save in this browser: a level
-  // counts once its best score reaches that level's optimum. Each game has
-  // three levels.
+  // Stars come from the progress the games save in this browser. Each level
+  // shows a faint star until finished, an outline star once finished, and a
+  // filled star once its best score reaches the optimum.
+  const LEVELS = {
+    reversible: ['Easy', 'Medium', 'Hard'], erase: ['Easy', 'Medium', 'Hard'],
+    prices: ['Easy', 'Medium', 'Hard'], pits: ['Easy', 'Medium', 'Hard'],
+    spooky: ['Easy', 'Medium', 'Hard'], dag: ['Pyramid', 'Tree', 'Puzzle'],
+    redblue: ['Easy', 'Medium', 'Hard'], clocked: ['Easy', 'Medium', 'Hard'],
+  };
   let data = {};
   try { data = JSON.parse(localStorage.getItem('pebble-games-v1')) || {}; } catch (e) {}
+  let filled = 0, total = 0;
   document.querySelectorAll('.stars').forEach(el => {
-    const n = Object.values(data[el.dataset.game] || {}).filter(r => r && r.best <= r.opt).length;
-    el.innerHTML = '<b>' + '★'.repeat(n) + '</b>' + '★'.repeat(Math.max(0, 3 - n));
-    el.setAttribute('aria-label', n + ' of 3 levels solved optimally');
+    const game = el.dataset.game, saved = data[game] || {};
+    el.innerHTML = LEVELS[game].map(level => {
+      const r = saved[level], opt = !!r && r.best <= r.opt;
+      total++; if (opt) filled++;
+      const state = opt ? 'optimal' : r ? 'finished' : 'not yet';
+      return '<span class="' + (opt ? 'opt' : r ? 'done' : '') + '" title="' + level + ': ' + state + '">' + (opt ? '★' : '☆') + '</span>';
+    }).join('');
   });
+  document.getElementById('total').innerHTML = '<b>' + filled + ' of ' + total + '</b> stars filled';
 </script>
 </body>
 </html>
