@@ -113,7 +113,7 @@ window.PebbleBeats = (() => {
     const L = { keys: layer(duck), bass: layer(duck), mel: layer(duck), arp: layer(duck),
                 kick: layer(drums), snare: layer(drums), hat: layer(drums), crackle: layer(warm) };
     const send = (from, to, amount) => { const g = c.createGain(); g.gain.value = amount; from.connect(g); g.connect(to); };
-    send(L.arp, echoIn, 0.5); send(L.mel, echoIn, 0.35); send(L.mel, roomIn, 0.5); send(L.keys, roomIn, 0.6); send(fx, echoIn, 0.25);
+    send(L.arp, echoIn, 0.5); send(L.mel, echoIn, 0.35); send(L.mel, roomIn, 0.5); send(L.keys, roomIn, 0.6); send(fx, echoIn, 0.1); send(fx, roomIn, 0.35);
 
     // Slow tape wobble on the keys and lead.
     const wob = c.createOscillator(), wobDepth = c.createGain();
@@ -293,47 +293,46 @@ window.PebbleBeats = (() => {
       for (const k in L) { L[k].gain.cancelScheduledValues(t); L[k].gain.setTargetAtTime(LEVELS[n][k] || 0, t, 0.35); }
     }
 
-    // ---------- Sound effects, in the music's key ----------
+    // ---------- Sound effects: one soft sound per kind of move ----------
+    // Every move of the same kind sounds the same, wherever it happens. The
+    // notes are G, A, D and E, which sit well over every chord in both moods.
+    const FX = 0.085;                                // base level of the effects
     const soon = () => c.currentTime + 0.01;
-    function tone(t, midi, len, o = {}) {
-      const osc = c.createOscillator(), lp = c.createBiquadFilter(), g = c.createGain();
-      osc.type = o.type || 'triangle';
-      lp.type = 'lowpass'; lp.frequency.value = o.cutoff || 4000;
-      if (o.from != null) { osc.frequency.setValueAtTime(hz(o.from), t); osc.frequency.exponentialRampToValueAtTime(hz(midi), t + 0.03); }
-      else osc.frequency.setValueAtTime(hz(midi), t);
-      if (o.to != null) osc.frequency.exponentialRampToValueAtTime(hz(o.to), t + len);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(o.gain || 0.1, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0008, t + len);
-      osc.connect(lp); lp.connect(g); g.connect(fx); start(osc, t, t + len + 0.05);
+    // A soft mallet: a sine with faint upper partials, gentle attack, warm decay.
+    function bell(t, midi, len, gain) {
+      const g = c.createGain(), lp = c.createBiquadFilter();
+      lp.type = 'lowpass'; lp.frequency.value = 2400;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t + 0.008);
+      g.gain.setTargetAtTime(0, t + 0.008, len / 4);
+      lp.connect(g); g.connect(fx);
+      [[1, 1], [2, 0.12], [4, 0.05]].forEach(([mult, amp]) => {
+        const o = c.createOscillator(), a = c.createGain();
+        o.frequency.value = hz(midi) * mult; a.gain.value = amp;
+        o.connect(a); a.connect(lp); start(o, t, t + len + 0.1);
+      });
       dip(t);
     }
-    // The music steps back a little under each effect.
-    function dip(t) { duck.gain.setTargetAtTime(0.7, t, 0.01); duck.gain.setTargetAtTime(1, t + 0.12, 0.15); }
-    function poof(t) {
-      const n = c.createBufferSource(), bp = c.createBiquadFilter(), g = c.createGain();
-      n.buffer = buf.noise; bp.type = 'bandpass'; bp.Q.value = 1.2;
-      bp.frequency.setValueAtTime(2600, t); bp.frequency.exponentialRampToValueAtTime(320, t + 0.3);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.35, t + 0.02); g.gain.exponentialRampToValueAtTime(0.001, t + 0.34);
-      n.connect(bp); bp.connect(g); g.connect(fx); start(n, t, t + 0.36, rand() * 0.5);
-      dip(t);
+    // A soft breath of low noise, for erasing.
+    function breath(t, len, gain) {
+      const n = c.createBufferSource(), lp = c.createBiquadFilter(), g = c.createGain();
+      n.buffer = buf.noise; lp.type = 'lowpass'; lp.frequency.value = 900; lp.Q.value = 0.5;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t + 0.06); g.gain.setTargetAtTime(0, t + 0.06, len / 4);
+      n.connect(lp); lp.connect(g); g.connect(fx); start(n, t, t + len + 0.1, 0.25);
     }
-    // Spots further up the line sound higher: G4 at the start up to G6 at the flag.
-    const pitch = (i, n) => deg(Math.round(i / Math.max(1, n) * 10) - 2);
+    // The music steps back slightly under each effect.
+    function dip(t) { duck.gain.setTargetAtTime(0.85, t, 0.02); duck.gain.setTargetAtTime(1, t + 0.12, 0.2); }
     const sfx = {
-      place(i, n) { const t = soon(), m = pitch(i, n); tone(t, m, 0.22, { type: 'square', gain: 0.064, cutoff: 3000, from: m - 1 }); tone(t, m, 0.3, { gain: 0.16, from: m - 1 }); },
-      remove(i, n) { const t = soon(), m = pitch(i, n); tone(t, m, 0.2, { gain: 0.18, to: m - 2 }); },
-      erase(i, n) { const t = soon(), m = pitch(i, n); poof(t); tone(t, m, 0.32, { type: 'sine', gain: 0.11, to: m - 12 }); },
-      bad() { const t = soon(); tone(t, 50, 0.12, { gain: 0.19, cutoff: 900 }); tone(t + 0.08, 49, 0.16, { gain: 0.16, cutoff: 900 }); },
-      flag() {
-        const t = soon();
-        [84, 88, 91].forEach((m, k) => { tone(t + k * 0.07, m, 0.25, { type: 'square', gain: 0.035, cutoff: 3500 }); tone(t + k * 0.07, m, 0.3, { gain: 0.07 }); });
-      },
+      place() { bell(soon(), 79, 0.45, FX); },                                   // G5
+      remove() { bell(soon(), 76, 0.4, FX * 0.8); },                             // E5: the same, a step down
+      erase() { const t = soon(); breath(t, 0.5, FX * 1.4); bell(t + 0.03, 67, 0.6, FX * 0.75); },  // G4 under a breath
+      bad() { bell(soon(), 57, 0.18, FX * 0.8); },                               // A3, short and muted
+      flag() { const t = soon(); bell(t, 79, 0.6, FX * 0.75); bell(t + 0.12, 86, 0.9, FX * 0.75); },             // G5 then D6
       win() {
         const t = soon();
-        [72, 76, 79, 84, 88, 91].forEach((m, k) => { tone(t + k * 0.06, m, 0.3, { type: 'square', gain: 0.035, cutoff: 3500 }); tone(t + k * 0.06, m, 0.35, { gain: 0.07 }); });
-        [84, 88, 91, 95, 98].forEach(m => tone(t + 0.4, m, 1.8, { type: 'sine', gain: 0.035 }));
-        tone(t + 0.4, 48, 0.6, { type: 'sine', gain: 0.16, cutoff: 600 });
+        [76, 79, 81, 86, 88].forEach((m, k) => bell(t + k * 0.1, m, 1.2, FX * 0.7));            // E5 G5 A5 D6 E6
+        [79, 86, 88].forEach(m => bell(t + 0.6, m, 2.2, FX * 0.4));
       },
-      lose() { const t = soon(); [67, 64, 60].forEach((m, k) => tone(t + k * 0.16, m, k === 2 ? 0.6 : 0.2, { gain: 0.13, to: k === 2 ? 59 : null })); },
+      lose() { const t = soon(); [76, 74, 67].forEach((m, k) => bell(t + k * 0.22, m, k === 2 ? 1 : 0.5, FX * 0.8)); },  // E5 D5 G4
     };
     // A short filter dip when a puzzle is lost.
     function sag() {
