@@ -14,7 +14,7 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../shared/priced.css">
+<link rel="stylesheet" href="../shared/priced.css?v=3">
 <style>
   #tiers { display: flex; gap: 6px; }
   #tiers button { flex: 1; padding: 7px 0; line-height: 1.15; }
@@ -32,6 +32,7 @@
   body.done #tiers button:not(.sel), body.done #picker button:not(.sel) { background: transparent; color: #fff; }
   body.done #tiers button i { color: rgba(255,255,255,.8); }
 </style>
+<link rel="stylesheet" href="../shared/intro.css?v=3">
 </head>
 <body>
 <main>
@@ -60,10 +61,10 @@
     <button id="reset" type="button">Reset</button>
   </div>
 </main>
-<script src="../shared/puzzles.js"></script>
-<script src="../shared/progress.js"></script>
-<script src="../shared/priced.js"></script>
-<script src="../shared/beats.js"></script>
+<script src="../shared/puzzles.js?v=3"></script>
+<script src="../shared/progress.js?v=3"></script>
+<script src="../shared/priced.js?v=3"></script>
+<script src="../shared/beats.js?v=3"></script>
 <script>
   // Three tiers of twelve, from puzzles.js. tools/make_puzzles.py grades each
   // puzzle by how unlikely random legal play is to hit the optimum (the Prices
@@ -150,5 +151,6 @@
   window.addEventListener('hashchange', fromHash);
   fromHash();
 </script>
+<script src="../shared/intro.js?v=3" data-game="challenge"></script>
 </body>
 </html>

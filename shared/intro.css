@@ -1,0 +1,107 @@
+/* Rules dropdown and the "how to play" animation, shared by every game page.
+   The page's own rules box (#info, or #rules on Daily and Challenge) is moved
+   into the dropdown by intro.js; until then it is hidden so it does not flash. */
+main > #info, main > #rules { display: none; }
+
+.rules-drop {
+  border: 2px solid var(--faint, #D5D9DF); border-radius: 12px; background: #F4F5F7;
+}
+.rules-drop > summary {
+  list-style: none; display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px 6px 12px; font-size: 15px; font-weight: 650; cursor: pointer;
+  color: var(--ink, #1F2329); user-select: none; -webkit-user-select: none;
+}
+.rules-drop > summary::-webkit-details-marker { display: none; }
+.rules-drop > summary::before {
+  content: ""; width: 7px; height: 7px; margin: 0 3px 3px 1px;
+  border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg); transition: transform .15s;
+}
+.rules-drop[open] > summary::before { transform: rotate(45deg); margin-bottom: 5px; }
+.rules-drop > summary .how {
+  margin-left: auto; padding: 5px 11px; font: inherit; font-size: 14px; font-weight: 650;
+  color: var(--ink, #1F2329); background: #fff; border: 2px solid var(--faint, #D5D9DF); border-radius: 8px;
+}
+.rules-drop > #info, .rules-drop > #rules {
+  display: block; margin: 0 !important; border: 0 !important; background: transparent !important;
+  padding: 0 14px 12px !important; border-radius: 0 !important;
+}
+body.won .rules-drop, body.done .rules-drop { display: none; }
+
+/* The animation: a small board, a finger, a caption. */
+.pi-back {
+  position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
+  padding: 12px; background: rgba(20, 22, 26, .55);
+}
+.pi-card {
+  width: min(420px, 100%); max-height: 100%; overflow: auto; padding: 16px 16px 14px;
+  background: #fff; color: #1F2329; border-radius: 16px; box-shadow: 0 10px 40px rgba(0, 0, 0, .25);
+  user-select: none; -webkit-user-select: none;
+}
+.pi-kicker { display: block; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #7A808A; }
+.pi-title { margin: 0 0 10px; font-size: 22px; line-height: 1.2; }
+.pi-stage {
+  position: relative; border: 2px solid #D5D9DF; border-radius: 12px; background: #FAFBFC;
+  transition: background .3s, border-color .3s;
+}
+.pi-stage.win { background: #E3F5EE; border-color: #009E73; }
+.pi-stage svg { display: block; width: 100%; height: auto; }
+.pi-finger {
+  position: absolute; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%;
+  background: rgba(26, 28, 32, .16); border: 2px solid rgba(26, 28, 32, .5);
+  opacity: 0; pointer-events: none;
+  transition: left .42s ease, top .42s ease, opacity .2s, transform .15s;
+}
+.pi-finger.show { opacity: 1; }
+.pi-finger.press { transform: scale(.72); }
+.pi-finger.ripple::after {
+  content: ""; position: absolute; inset: -2px; border-radius: 50%;
+  border: 2px solid rgba(26, 28, 32, .5); animation: piRipple .5s ease-out forwards;
+}
+@keyframes piRipple { to { transform: scale(2.2); opacity: 0; } }
+.pi-hud { margin-top: 8px; min-height: 20px; font-size: 14px; font-weight: 650; color: #4A5058; text-align: center; }
+.pi-say { margin: 6px 0 0; min-height: 70px; font-size: 17px; line-height: 1.4; text-align: center; }
+.pi-dots { display: flex; justify-content: center; gap: 5px; margin: 4px 0 12px; }
+.pi-dots i { width: 6px; height: 6px; border-radius: 50%; background: #D5D9DF; }
+.pi-dots i.on { background: #1A1C20; }
+.pi-actions { display: flex; gap: 8px; }
+.pi-actions button {
+  flex: 1; padding: 10px 0; font: inherit; font-size: 16px; font-weight: 650;
+  color: #1F2329; background: #fff; border: 2px solid #D5D9DF; border-radius: 10px;
+}
+.pi-actions .go { color: #fff; background: #1A1C20; border-color: #1A1C20; }
+
+/* Board pieces, matching the games. */
+.pi-svg .track { fill: none; stroke: #1A1C20; stroke-width: 9; stroke-linecap: round; }
+.pi-svg .edge { stroke: #B8BEC6; stroke-width: 3; }
+.pi-svg .ring { fill: #fff; stroke: #1A1C20; stroke-width: 4; transition: fill .2s, stroke .2s; }
+.pi-svg .fixed .ring { fill: #1A1C20; }
+.pi-svg .input .ring { stroke-width: 6; }
+.pi-svg .goal .ring { stroke-dasharray: 7 5; }
+.pi-svg .dot { fill: #1A1C20; }
+.pi-svg .idx { font-size: 14px; font-weight: 700; fill: #7A808A; text-anchor: middle; }
+.pi-svg .flag path { fill: #1A1C20; stroke: #1A1C20; }
+.pi-svg .ghost .ring { fill: #EFEAFB; stroke: #7A5CC4; stroke-dasharray: 6 4; }
+.pi-svg .spook { fill: #7A5CC4; }
+.pi-svg .queued .ring { fill: #DDEAFB; stroke: #2367C9; stroke-width: 5; }
+.pi-svg .qdot { fill: #2367C9; opacity: .35; }
+.pi-svg .blue .ring { fill: #DDEAFB; stroke: #2367C9; stroke-width: 4.5; }
+.pi-svg .red .dot { fill: #D7263D; }
+.pi-svg .slot { fill: #fff; stroke: #B8BEC6; stroke-width: 2; }
+.pi-svg .slot.full { fill: #1A1C20; stroke: #1A1C20; }
+.pi-svg .chip rect { fill: #fff; stroke: #1A1C20; stroke-width: 1.5; }
+.pi-svg .chip text { font-size: 13px; font-weight: 700; fill: #1F2329; text-anchor: middle; }
+.pi-svg .chip.e rect { fill: #D55E00; stroke: #D55E00; }
+.pi-svg .chip.e text { fill: #fff; }
+.pi-svg .bad .ring { fill: #E31A1C; stroke: #E31A1C; }
+.pi-svg .erased .ring { fill: #D55E00; stroke: #D55E00; }
+.pi-svg .holdring { fill: none; stroke: #D55E00; stroke-width: 7; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: piHold .62s linear forwards; }
+@keyframes piHold { to { stroke-dashoffset: 0; } }
+.pi-svg .tickbtn rect { fill: #fff; stroke: #D5D9DF; stroke-width: 2; }
+.pi-svg .tickbtn text { font-size: 15px; font-weight: 700; fill: #1F2329; text-anchor: middle; }
+@media (prefers-reduced-motion: no-preference) {
+  .pi-svg .pop .dot, .pi-svg .pop .spook { transform-box: fill-box; transform-origin: center; animation: piPop .22s ease-out; }
+  @keyframes piPop { 0% { transform: scale(.3); } 65% { transform: scale(1.15); } 100% { transform: scale(1); } }
+}
+@media (prefers-reduced-motion: reduce) { .pi-finger { transition: opacity .2s; } }
+.pi-svg .blue .flag path { fill: #2367C9; stroke: #2367C9; }

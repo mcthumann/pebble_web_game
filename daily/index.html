@@ -14,7 +14,7 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../shared/priced.css">
+<link rel="stylesheet" href="../shared/priced.css?v=3">
 <style>
   #status { display: flex; gap: 8px; }
   #status span {
@@ -27,6 +27,7 @@
   body.done #status { display: none; }
   body.done #countdown { color: rgba(255,255,255,.85); }
 </style>
+<link rel="stylesheet" href="../shared/intro.css?v=3">
 </head>
 <body>
 <main>
@@ -55,10 +56,10 @@
   </div>
   <p id="countdown"></p>
 </main>
-<script src="../shared/puzzles.js"></script>
-<script src="../shared/progress.js"></script>
-<script src="../shared/priced.js"></script>
-<script src="../shared/beats.js"></script>
+<script src="../shared/puzzles.js?v=3"></script>
+<script src="../shared/progress.js?v=3"></script>
+<script src="../shared/priced.js?v=3"></script>
+<script src="../shared/beats.js?v=3"></script>
 <script>
   // Everyone gets the same puzzle on the same (local) date, from puzzles.js.
   // Every daily puzzle is graded at about the Prices game's Hard level, and its
@@ -118,5 +119,6 @@
   tick();
   setInterval(tick, 30000);
 </script>
+<script src="../shared/intro.js?v=3" data-game="daily"></script>
 </body>
 </html>

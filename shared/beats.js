@@ -2,8 +2,8 @@
 // it, synthesised in the browser (there are no audio files).
 //
 // The music is a four-chord loop: soft electric-piano chords, a round bass,
-// swung lo-fi drums that make the chords breathe, a chiptune arpeggio with
-// echo, vinyl crackle, and a short lead melody. The melody is made up fresh
+// swung lo-fi drums that make the chords breathe, a soft chiptune arpeggio,
+// vinyl crackle, and a short lead melody. The melody is made up fresh
 // every 32 bars and repeated within them, so it sticks. Under everything, two
 // quiet sine tones a few hertz apart, one per ear, give the binaural beat
 // (10 Hz for Focus, 6 Hz for Calm) through headphones.
@@ -83,7 +83,8 @@ window.PebbleBeats = (() => {
     const t0 = c.currentTime + 0.12;
 
     // Mix: music (ducked under the kick) and drums through a warm low-pass and a
-    // gentle compressor; echo and room sends; effects and the binaural pair beside.
+    // gentle compressor; a small room on the keys and lead; effects (dry) and the
+    // binaural pair beside.
     const master = c.createGain();
     master.gain.setValueAtTime(0, t0);
     master.gain.linearRampToValueAtTime(0.6, t0 + 2);
@@ -101,10 +102,6 @@ window.PebbleBeats = (() => {
     const drums = c.createGain(); drums.gain.value = cfg.drums; drums.connect(warm);
     const fx = c.createGain(); fx.gain.value = 3.6; fx.connect(master);   // effects skip the compressor so they cut through
 
-    const echoIn = c.createGain(), echo = c.createDelay(2), fb = c.createGain(), echoTone = c.createBiquadFilter(), echoOut = c.createGain();
-    echo.delayTime.value = spb * 0.75; fb.gain.value = 0.32;
-    echoTone.type = 'lowpass'; echoTone.frequency.value = 2600; echoOut.gain.value = 0.35;
-    echoIn.connect(echo); echo.connect(echoTone); echoTone.connect(fb); fb.connect(echo); echoTone.connect(echoOut); echoOut.connect(warm);
     const roomIn = c.createGain(), room = c.createConvolver(), roomOut = c.createGain();
     room.buffer = buf.room; roomOut.gain.value = cfg.space;
     roomIn.connect(room); room.connect(roomOut); roomOut.connect(warm);
@@ -113,7 +110,7 @@ window.PebbleBeats = (() => {
     const L = { keys: layer(duck), bass: layer(duck), mel: layer(duck), arp: layer(duck),
                 kick: layer(drums), snare: layer(drums), hat: layer(drums), crackle: layer(warm) };
     const send = (from, to, amount) => { const g = c.createGain(); g.gain.value = amount; from.connect(g); g.connect(to); };
-    send(L.arp, echoIn, 0.5); send(L.mel, echoIn, 0.35); send(L.mel, roomIn, 0.5); send(L.keys, roomIn, 0.6); send(fx, echoIn, 0.1); send(fx, roomIn, 0.35);
+    send(L.mel, roomIn, 0.4); send(L.keys, roomIn, 0.6);   // no echo anywhere; effects stay dry
 
     // Slow tape wobble on the keys and lead.
     const wob = c.createOscillator(), wobDepth = c.createGain();
@@ -294,14 +291,15 @@ window.PebbleBeats = (() => {
     }
 
     // ---------- Sound effects: one soft sound per kind of move ----------
-    // Every move of the same kind sounds the same, wherever it happens. The
-    // notes are G, A, D and E, which sit well over every chord in both moods.
+    // Every move of the same kind sounds the same, wherever it happens: placing
+    // and removing share one note (G5), removing is just softer. No echo or room.
+    // The notes are G, A, D and E, which sit well over every chord in both moods.
     const FX = 0.085;                                // base level of the effects
     const soon = () => c.currentTime + 0.01;
     // A soft mallet: a sine with faint upper partials, gentle attack, warm decay.
-    function bell(t, midi, len, gain) {
+    function bell(t, midi, len, gain, cutoff) {
       const g = c.createGain(), lp = c.createBiquadFilter();
-      lp.type = 'lowpass'; lp.frequency.value = 2400;
+      lp.type = 'lowpass'; lp.frequency.value = cutoff || 2400;
       g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t + 0.008);
       g.gain.setTargetAtTime(0, t + 0.008, len / 4);
       lp.connect(g); g.connect(fx);
@@ -323,7 +321,7 @@ window.PebbleBeats = (() => {
     function dip(t) { duck.gain.setTargetAtTime(0.85, t, 0.02); duck.gain.setTargetAtTime(1, t + 0.12, 0.2); }
     const sfx = {
       place() { bell(soon(), 79, 0.45, FX); },                                   // G5
-      remove() { bell(soon(), 76, 0.4, FX * 0.8); },                             // E5: the same, a step down
+      remove() { bell(soon(), 79, 0.3, FX * 0.7, 1300); },                       // the same G5, softer and darker
       erase() { const t = soon(); breath(t, 0.5, FX * 1.4); bell(t + 0.03, 67, 0.6, FX * 0.75); },  // G4 under a breath
       bad() { bell(soon(), 57, 0.18, FX * 0.8); },                               // A3, short and muted
       flag() { const t = soon(); bell(t, 79, 0.6, FX * 0.75); bell(t + 0.12, 86, 0.9, FX * 0.75); },             // G5 then D6

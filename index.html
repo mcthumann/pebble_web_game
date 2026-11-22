@@ -164,6 +164,7 @@
   #more .moods button.sel { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
   body.won #more { display: none; }
 </style>
+<link rel="stylesheet" href="shared/intro.css?v=3">
 </head>
 <body>
 <main>
@@ -224,7 +225,7 @@
     </div>
   </section>
 </main>
-<script src="shared/beats.js"></script>
+<script src="shared/beats.js?v=3"></script>
 <script>
   // Easy, Medium, Hard give 2, 3, 4 pebbles. With P pebbles the furthest
   // reachable spot is 2^P - 1, so that is where the flag goes: 3, 7, 15.
@@ -495,8 +496,8 @@
   window.addEventListener('hashchange', openAbout);
   openAbout();
 </script>
-<script src="shared/puzzles.js"></script>
-<script src="shared/progress.js"></script>
+<script src="shared/puzzles.js?v=3"></script>
+<script src="shared/progress.js?v=3"></script>
 <script>
   // More to play: today's daily puzzle, challenge stars and the focus sound.
   (() => {
@@ -511,5 +512,6 @@
     PebbleBeats.picker(document.getElementById('moods'), document.getElementById('moodNote'));
   })();
 </script>
+<script src="shared/intro.js?v=3" data-game="reversible"></script>
 </body>
 </html>
