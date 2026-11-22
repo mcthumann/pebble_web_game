@@ -196,7 +196,7 @@
     <button type="button" data-p="1,1,2,3,2,4,1">Easy</button>
     <button type="button" data-p="1,1,1,2,2,1,3,1">Medium</button>
     <button type="button" data-p="1,1,1,2,2,3,2,4,1,4,2,2">Hard</button>
-    <button type="button" data-daily>Daily</button>
+    <button type="button" data-daily>Bonus</button>
   </div>
   <ul id="info">
     <li>You only have the pebbles shown below the board.</li>
@@ -241,8 +241,8 @@
 </main>
 <script src="../shared/dailies.js?v=4"></script>
 <script src="../shared/progress.js?v=4"></script>
-<script src="../shared/daily-mode.js?v=4"></script>
-<script src="../shared/beats.js?v=5"></script>
+<script src="../shared/daily-mode.js?v=5"></script>
+<script src="../shared/beats.js?v=6"></script>
 <script>
   // Multipebble-node line game, fully reversible, clean finish. Pit k is an
   // indivisible bundle of p_k pebbles: one tap fills or empties it (one move),
@@ -641,7 +641,7 @@
   board.addEventListener('contextmenu', e => e.preventDefault());
 
   kit.init();
-  // Today's daily puzzle is the last level button (shared/daily-mode.js).
+  // Today's bonus challenge is the last level button (shared/daily-mode.js).
   const daily = PebbleDaily.attach('pits', 'pits/');
   PebbleBeats.toggleButton(document.getElementById('beats'));
   const params = new URLSearchParams(location.search);
@@ -663,6 +663,6 @@
   window.addEventListener('hashchange', openAbout);
   openAbout();
 </script>
-<script src="../shared/intro.js?v=3" data-game="pits"></script>
+<script src="../shared/intro.js?v=4" data-game="pits"></script>
 </body>
 </html>

@@ -195,7 +195,7 @@
     <button type="button" data-p="3" data-n="5" data-opt="17" data-row="4">Easy</button>
     <button type="button" data-p="3" data-n="7" data-opt="39" data-row="4">Medium</button>
     <button type="button" data-p="4" data-n="13" data-opt="63" data-row="5">Hard</button>
-    <button type="button" data-daily>Daily</button>
+    <button type="button" data-daily>Bonus</button>
   </div>
   <ul id="info">
     <li>A tap places or removes a pebble, only when the spot before has a pebble.</li>
@@ -227,8 +227,8 @@
 </main>
 <script src="../shared/dailies.js?v=4"></script>
 <script src="../shared/progress.js?v=4"></script>
-<script src="../shared/daily-mode.js?v=4"></script>
-<script src="../shared/beats.js?v=5"></script>
+<script src="../shared/daily-mode.js?v=5"></script>
+<script src="../shared/beats.js?v=6"></script>
 <script>
   // Spooky pebble game on a line (Gidney; Kornerup, Sadun and Soloveichik).
   // Each spot is empty, pebbled or a ghost. A tap places or removes a pebble on
@@ -553,7 +553,7 @@
   $('reset').addEventListener('click', buttonTap(reset));
   board.addEventListener('contextmenu', e => e.preventDefault());
   kit.init();
-  // Today's daily puzzle is the last level button (shared/daily-mode.js).
+  // Today's bonus challenge is the last level button (shared/daily-mode.js).
   const daily = PebbleDaily.attach('spooky', 'spooky/');
   PebbleBeats.toggleButton(document.getElementById('beats'));
   setLevel(daily.wanted() ? daily.button : levelButtons[0]);
@@ -567,6 +567,6 @@
   window.addEventListener('hashchange', openAbout);
   openAbout();
 </script>
-<script src="../shared/intro.js?v=3" data-game="spooky"></script>
+<script src="../shared/intro.js?v=4" data-game="spooky"></script>
 </body>
 </html>

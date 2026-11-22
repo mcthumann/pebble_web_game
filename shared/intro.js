@@ -96,7 +96,7 @@
       ],
     },
     prices: PRICES,
-    daily: { ...PRICES, title: 'Daily puzzle', seenAs: 'prices' },
+    daily: { ...PRICES, title: 'Bonus challenge', seenAs: 'prices' },
     challenge: { ...PRICES, title: 'Challenges', seenAs: 'prices' },
     pits: {
       title: 'Pits',

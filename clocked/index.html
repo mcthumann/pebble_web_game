@@ -191,7 +191,7 @@
     <button type="button" data-p="3" data-n="4" data-opt="8" data-row="5">Easy</button>
     <button type="button" data-p="4" data-n="8" data-opt="20" data-row="5">Medium</button>
     <button type="button" data-p="5" data-n="13" data-opt="33" data-row="5">Hard</button>
-    <button type="button" data-daily>Daily</button>
+    <button type="button" data-daily>Bonus</button>
   </div>
   <ul id="info">
     <li>Tap spots to <span class="t">queue</span> moves, then press <b>Tick</b> to make them all at once.</li>
@@ -224,8 +224,8 @@
 </main>
 <script src="../shared/dailies.js?v=4"></script>
 <script src="../shared/progress.js?v=4"></script>
-<script src="../shared/daily-mode.js?v=4"></script>
-<script src="../shared/beats.js?v=5"></script>
+<script src="../shared/daily-mode.js?v=5"></script>
+<script src="../shared/beats.js?v=6"></script>
 <script>
   // Clocked (parallel) reversible pebbling on a line. Each tick toggles any set
   // of spots at once; a spot may change only if the spot before it is pebbled
@@ -548,7 +548,7 @@
   });
   board.addEventListener('contextmenu', e => e.preventDefault());
   kit.init();
-  // Today's daily puzzle is the last level button (shared/daily-mode.js).
+  // Today's bonus challenge is the last level button (shared/daily-mode.js).
   const daily = PebbleDaily.attach('clocked', 'clocked/');
   PebbleBeats.toggleButton(document.getElementById('beats'));
   setLevel(daily.wanted() ? daily.button : levelButtons[0]);
@@ -562,6 +562,6 @@
   window.addEventListener('hashchange', openAbout);
   openAbout();
 </script>
-<script src="../shared/intro.js?v=3" data-game="clocked"></script>
+<script src="../shared/intro.js?v=4" data-game="clocked"></script>
 </body>
 </html>

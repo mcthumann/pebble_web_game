@@ -3,9 +3,9 @@
 //
 // The music is a four-chord loop kept low and dark: soft electric-piano chords,
 // a round bass, swung lo-fi drums that make the chords breathe, a soft plucked
-// arpeggio, vinyl crackle, and a short, mellow lead melody (D4 to E5, no
-// higher). The whole mix runs through a low-pass at 3.2 kHz, so nothing is
-// bright. The melody is made up fresh every 32 bars and repeated within them,
+// arpeggio (C3 to D4), vinyl crackle, and a short, mellow lead melody (D3 to
+// E4, no higher). The whole mix runs through a low-pass at 2.5 kHz, so nothing
+// is bright. The melody is made up fresh every 32 bars and repeated within them,
 // so it sticks. Under everything, two quiet sine tones a few hertz apart, one
 // per ear, give the binaural beat (10 Hz for Focus, 6 Hz for Calm) through
 // headphones.
@@ -23,8 +23,8 @@ window.PebbleBeats = (() => {
   const PENTA = [0, 2, 4, 7, 9];                                   // C major pentatonic
   const hz = m => 440 * Math.pow(2, (m - 69) / 12);                // MIDI note to hertz
   const deg = d => 60 + 12 * Math.floor(d / 5) + PENTA[((d % 5) + 5) % 5];  // degree 0 = C4
-  const LO = 1, HI = 7;                                            // melody range: D4 to E5
-  const WARM = 3200;                                               // the mix's low-pass, in hertz
+  const LO = -4, HI = 2;                                           // melody range: D3 to E4
+  const WARM = 2500;                                               // the mix's low-pass, in hertz
 
   // Chords are [bass, voicing...] in MIDI. keys: [step, length in steps, velocity].
   const MOODS = {
@@ -47,7 +47,7 @@ window.PebbleBeats = (() => {
     { keys: 0.8, bass: 1, mel: 0.95, hat: 0.9, kick: 1, snare: 1, arp: 1, crackle: 0.8 },
     { keys: 0.8, bass: 1, mel: 1, hat: 1, kick: 1, snare: 1, arp: 1, crackle: 0.7 },
   ];
-  const ARP = [0, 1, 2, 3, 2, 1, 2, 3];
+  const ARP = [0, 1, 2, 1, 0, 1, 2, 1];                           // the lower three chord notes
   const RHYTHMS = [[0, 3, 6, 8, 12], [0, 2, 4, 7, 10], [0, 6, 8, 10, 14], [2, 4, 6, 10, 12], [0, 4, 7, 10], [0, 3, 6, 10, 12, 14]];
 
   function seeded(seed) {
@@ -147,8 +147,8 @@ window.PebbleBeats = (() => {
     function keys(t, midi, len, vel) {
       const f = hz(midi), g = c.createGain();
       g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(0.075 * vel, t + 0.012);
-      g.gain.setTargetAtTime(0.033 * vel, t + 0.012, 0.35);
+      g.gain.linearRampToValueAtTime(0.062 * vel, t + 0.012);
+      g.gain.setTargetAtTime(0.027 * vel, t + 0.012, 0.35);
       g.gain.setTargetAtTime(0, t + len, 0.12);
       g.connect(L.keys);
       [[1, 1], [2, 0.22], [3, 0.06]].forEach(([mult, amp]) => {
@@ -172,20 +172,22 @@ window.PebbleBeats = (() => {
     function blip(t, midi, len, gain, bus) {
       const o = c.createOscillator(), lp = c.createBiquadFilter(), g = c.createGain();
       o.type = 'triangle'; o.frequency.value = hz(midi);
-      lp.type = 'lowpass'; lp.frequency.value = 900;
+      lp.type = 'lowpass'; lp.frequency.value = 800;
       g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t + 0.008); g.gain.setTargetAtTime(0, t + 0.012, len / 3);
       o.connect(lp); lp.connect(g); g.connect(bus); start(o, t, t + len + 0.3);
     }
 
-    // A mellow, flute-like lead: a sine with a little triangle, filtered low.
-    // When the flag is reached it opens up slightly, but it never gets bright.
+    // A mellow, low lead, like a soft cello: a sine, a triangle and a little
+    // sawtooth, filtered low. The pitch sits low (D3 to E4); the overtones keep
+    // the tune audible on phone speakers, which barely play below 300 Hz. When
+    // the flag is reached it opens up slightly, but it never gets bright.
     function lead(t, midi, len, bright) {
       const lp = c.createBiquadFilter(), g = c.createGain();
-      lp.type = 'lowpass'; lp.frequency.value = bright ? 1500 : 1100; lp.Q.value = 0.5;
+      lp.type = 'lowpass'; lp.frequency.value = bright ? 1700 : 1400; lp.Q.value = 0.7;
       g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.15, t + 0.03);
       g.gain.setTargetAtTime(0.11, t + 0.03, 0.2); g.gain.setTargetAtTime(0, t + len, 0.1);
       lp.connect(g); g.connect(L.mel);
-      const parts = [['sine', 0, 1], ['triangle', 3, bright ? 0.5 : 0.35]];
+      const parts = [['sine', 0, 0.8], ['triangle', 3, 0.5], ['sawtooth', -4, bright ? 0.8 : 0.65]];
       parts.forEach(([type, cents, amp]) => {
         const o = c.createOscillator(), a = c.createGain();
         o.type = type; o.frequency.value = hz(midi); o.detune.value = cents; a.gain.value = amp;
@@ -223,7 +225,7 @@ window.PebbleBeats = (() => {
     // ---------- Melody: a two-bar motif, repeated, varied and answered ----------
     let motif = null, variant = null;
     function makeMotif() {
-      let d = 2 + Math.floor(rand() * 3);
+      let d = LO + 1 + Math.floor(rand() * 3);
       const bars = [0, 1].map(() => {
         const r = RHYTHMS[Math.floor(rand() * RHYTHMS.length)];
         return r.map((pos, k) => {
@@ -276,11 +278,11 @@ window.PebbleBeats = (() => {
       if (pos === 8) bassNote(t, chord[0] + (bar % 2 ? 7 : 0), 5 * step);
       if (pos === 14 && bar % 2) bassNote(t, chord[0] + 12, 1.6 * step);
 
-      if (on('arp') && pos % 2 === 0) blip(t, chord[1 + ARP[pos / 2]], 1.8 * step, 0.08 * cfg.arp, L.arp);
+      if (on('arp') && pos % 2 === 0) blip(t, chord[1 + ARP[pos / 2]], 1.8 * step, 0.085 * cfg.arp, L.arp);
 
       const notes = phrase(bar);
       if (notes) for (const n of notes) if (n.pos === pos) {
-        const d = n.d == null ? fit(5, chord, true) : fit(n.d, chord, pos % 4 === 0);
+        const d = n.d == null ? fit(HI - 2, chord, true) : fit(n.d, chord, pos % 4 === 0);
         lead(t, deg(d), n.len * step * 0.92, bright);
       }
 
@@ -302,10 +304,10 @@ window.PebbleBeats = (() => {
 
     // ---------- Sound effects: one soft sound per kind of move ----------
     // Every move of the same kind sounds the same, wherever it happens: placing
-    // and removing share one note (G4), removing is just softer. No echo or room.
+    // and removing share one note (D4), removing is just softer. No echo or room.
     // The notes are G, A, D and E, which sit well over every chord in both moods,
-    // and all sit low: nothing above E5.
-    const FX = 0.1;                                  // base level of the effects
+    // and all sit low: nothing above A4.
+    const FX = 0.085;                                // base level of the effects
     const soon = () => c.currentTime + 0.01;
     // A soft wooden mallet: a sine with a warm second partial, gentle attack.
     function bell(t, midi, len, gain, cutoff) {
@@ -331,18 +333,18 @@ window.PebbleBeats = (() => {
     // The music steps back slightly under each effect.
     function dip(t) { duck.gain.setTargetAtTime(0.85, t, 0.02); duck.gain.setTargetAtTime(1, t + 0.12, 0.2); }
     const sfx = {
-      place() { bell(soon(), 67, 0.45, FX); },                                   // G4
-      remove() { bell(soon(), 67, 0.3, FX * 0.7, 900); },                        // the same G4, softer and darker
-      erase() { const t = soon(); breath(t, 0.5, FX * 1.4); bell(t + 0.03, 62, 0.6, FX * 0.85); },  // D4 under a breath
+      place() { bell(soon(), 62, 0.45, FX); },                                   // D4
+      remove() { bell(soon(), 62, 0.3, FX * 0.7, 800); },                        // the same D4, softer and darker
+      erase() { const t = soon(); breath(t, 0.5, FX * 1.4); bell(t + 0.03, 55, 0.6, FX * 0.95); },  // G3 under a breath
       bad() { bell(soon(), 57, 0.18, FX * 0.8, 700); },                          // A3, short and muted
-      flag() { const t = soon(); bell(t, 67, 0.6, FX * 0.75); bell(t + 0.14, 74, 0.9, FX * 0.75); },             // G4 then D5
+      flag() { const t = soon(); bell(t, 62, 0.6, FX * 0.75); bell(t + 0.14, 69, 0.9, FX * 0.75); },             // D4 then A4
       win() {
         const t = soon();
-        [64, 67, 69, 74, 76].forEach((m, k) => bell(t + k * 0.12, m, 1.2, FX * 0.7));           // E4 G4 A4 D5 E5
-        [67, 74, 76].forEach(m => bell(t + 0.7, m, 2.2, FX * 0.4));
+        [55, 57, 62, 64, 69].forEach((m, k) => bell(t + k * 0.12, m, 1.2, FX * 0.7));           // G3 A3 D4 E4 A4
+        [62, 67, 69].forEach(m => bell(t + 0.7, m, 2.2, FX * 0.4));                              // D4 G4 A4
       },
       lose() { const t = soon(); [64, 62, 55].forEach((m, k) => bell(t + k * 0.24, m, k === 2 ? 1 : 0.5, FX * 0.8)); },  // E4 D4 G3
-      tick() { const t = soon(); bell(t, 55, 0.55, FX * 0.8, 1000); bell(t + 0.02, 62, 0.5, FX * 0.6, 1000); },  // G3 and D4 together (Clocked)
+      tick() { const t = soon(); bell(t, 50, 0.55, FX * 0.85, 1000); bell(t + 0.02, 57, 0.5, FX * 0.65, 1000); },  // D3 and A3 together (Clocked)
     };
     // A short filter dip when a puzzle is lost.
     function sag() {

@@ -178,7 +178,7 @@
     <button type="button" data-level="pyramid" data-s="4" data-opt="7">Easy</button>
     <button type="button" data-level="butterfly" data-s="4" data-opt="11">Medium</button>
     <button type="button" data-level="butterfly" data-s="3" data-opt="14">Hard</button>
-    <button type="button" data-daily>Daily</button>
+    <button type="button" data-daily>Bonus</button>
   </div>
   <ul id="info">
     <li><span class="r">Red</span> is fast memory: only a few pebbles. <span class="b">Blue</span> is slow memory: unlimited. Inputs start blue.</li>
@@ -207,8 +207,8 @@
 </main>
 <script src="../shared/dailies.js?v=4"></script>
 <script src="../shared/progress.js?v=4"></script>
-<script src="../shared/daily-mode.js?v=4"></script>
-<script src="../shared/beats.js?v=5"></script>
+<script src="../shared/daily-mode.js?v=5"></script>
+<script src="../shared/beats.js?v=6"></script>
 <script>
   // Red-blue pebble game (Hong and Kung, 1981): I/O complexity with a two-level
   // memory. S red pebbles model fast memory; blue pebbles model unlimited slow
@@ -581,7 +581,7 @@
   $('reset').addEventListener('click', buttonTap(reset));
   board.addEventListener('contextmenu', e => e.preventDefault());
   kit.init();
-  // Today's daily puzzle is the last level button (shared/daily-mode.js).
+  // Today's bonus challenge is the last level button (shared/daily-mode.js).
   const daily = PebbleDaily.attach('redblue', 'redblue/');
   GRAPHS.daily = daily.puzzle.graph;
   daily.button.dataset.level = 'daily';
@@ -597,6 +597,6 @@
   window.addEventListener('hashchange', openAbout);
   openAbout();
 </script>
-<script src="../shared/intro.js?v=3" data-game="redblue"></script>
+<script src="../shared/intro.js?v=4" data-game="redblue"></script>
 </body>
 </html>

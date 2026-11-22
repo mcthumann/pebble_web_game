@@ -178,7 +178,7 @@
     <button type="button" data-level="pyramid">Pyramid</button>
     <button type="button" data-level="tree">Tree</button>
     <button type="button" data-level="puzzle">Puzzle</button>
-    <button type="button" data-daily>Daily</button>
+    <button type="button" data-daily>Bonus</button>
   </div>
   <ul id="info">
     <li><b>Tap</b> a node to place or remove a pebble, only when every node feeding it has one. The bottom row reads the inputs, which are always there.</li>
@@ -209,8 +209,8 @@
 </main>
 <script src="../shared/dailies.js?v=4"></script>
 <script src="../shared/progress.js?v=4"></script>
-<script src="../shared/daily-mode.js?v=4"></script>
-<script src="../shared/beats.js?v=5"></script>
+<script src="../shared/daily-mode.js?v=5"></script>
+<script src="../shared/beats.js?v=6"></script>
 <script>
   // Reversible (Bennett) pebbling on small DAGs. Inputs are permanent and free,
   // as spot 0 is on the line: the bottom row reads them directly. A node may
@@ -588,7 +588,7 @@
   $('reset').addEventListener('click', buttonTap(reset));
   board.addEventListener('contextmenu', e => e.preventDefault());
   kit.init();
-  // Today's daily puzzle is the last level button (shared/daily-mode.js).
+  // Today's bonus challenge is the last level button (shared/daily-mode.js).
   const daily = PebbleDaily.attach('dag', 'dag/');
   LEVELS.daily = daily.puzzle.graph;
   daily.button.dataset.level = 'daily';
@@ -604,6 +604,6 @@
   window.addEventListener('hashchange', openAbout);
   openAbout();
 </script>
-<script src="../shared/intro.js?v=3" data-game="dag"></script>
+<script src="../shared/intro.js?v=4" data-game="dag"></script>
 </body>
 </html>

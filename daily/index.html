@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Pebble Daily</title>
+<title>Pebble Bonus</title>
 <meta name="description" content="A new hard pebble puzzle every day. The budget is the exact optimum: no slack.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Pebble Games">
-<meta property="og:title" content="Pebble Daily">
+<meta property="og:title" content="Pebble Bonus">
 <meta property="og:description" content="A new hard pebble puzzle every day. The budget is the exact optimum: no slack.">
 <meta property="og:url" content="https://mcthumann.github.io/pebble_web_game/daily/">
 <meta property="og:image" content="https://mcthumann.github.io/pebble_web_game/og.png">
@@ -32,7 +32,7 @@
 <body>
 <main>
   <header id="head">
-    <div class="title"><span class="kicker" id="date">Pebble Daily</span><h1 id="title">Daily</h1></div>
+    <div class="title"><span class="kicker" id="date">Prices bonus</span><h1 id="title">Bonus</h1></div>
     <button class="beats-toggle" id="beats" type="button"></button>
     <a href="../">Home</a>
   </header>
@@ -59,7 +59,7 @@
 <script src="../shared/puzzles.js?v=3"></script>
 <script src="../shared/progress.js?v=4"></script>
 <script src="../shared/priced.js?v=3"></script>
-<script src="../shared/beats.js?v=5"></script>
+<script src="../shared/beats.js?v=6"></script>
 <script>
   // Everyone gets the same puzzle on the same (local) date, from puzzles.js.
   // Every daily puzzle is graded at about the Prices game's Hard level, and its
@@ -69,9 +69,9 @@
   const key = prog.todayKey(), num = prog.dailyNumber(key), puzzle = prog.dailyPuzzle(num);
   let shareText = '';
 
-  $('title').textContent = 'Daily #' + num;
-  $('date').textContent = 'Pebble Daily · ' + prog.prettyDate(key);
-  document.title = 'Pebble Daily #' + num;
+  $('title').textContent = 'Bonus #' + num;
+  $('date').textContent = 'Prices bonus · ' + prog.prettyDate(key);
+  document.title = 'Pebble Bonus #' + num;
   $('hint').textContent = 'The optimal route erases ' + puzzle.erase.join(' or ') + ' pebbles.';
 
   function status() {
@@ -85,7 +85,7 @@
     $('verdict').textContent = r.won ? 'Solved!' : 'Out of budget';
     $('time').textContent = r.won ? r.time : '';
     $('summary').textContent = r.won
-      ? 'Daily #' + num + ' · cost ' + r.cost + ', the optimum'
+      ? 'Bonus #' + num + ' · cost ' + r.cost + ', the optimum'
       : r.flagged ? 'Flag reached, but ' + r.stray + (r.stray === 1 ? ' pebble' : ' pebbles') + ' still on the line'
       : 'No move fits in the budget left';
     $('detail').textContent = 'taps ' + r.tapCost + ' + erasures ' + r.eraseCost + ' = ' + r.cost;
@@ -97,7 +97,7 @@
     $('extra').textContent = before
       ? (r.ms < before ? 'New best time today' : 'Best today: ' + prog.clock(before))
       : s > 1 ? '\u{1F525} ' + s + '-day streak' : 'Streak started. Come back tomorrow.';
-    shareText = '★ Pebble Daily #' + num + ' · optimal in ' + r.time + (s > 1 ? ' · \u{1F525}' + s : '') + '\n' + URL_DAILY;
+    shareText = '★ Pebble Bonus #' + num + ' · optimal in ' + r.time + (s > 1 ? ' · \u{1F525}' + s : '') + '\n' + URL_DAILY;
     status();
     PricedGame.buzz([15, 60, 15, 60, 30]);
     setTimeout(PricedGame.confetti, 60);
@@ -119,6 +119,6 @@
   tick();
   setInterval(tick, 30000);
 </script>
-<script src="../shared/intro.js?v=3" data-game="daily"></script>
+<script src="../shared/intro.js?v=4" data-game="daily"></script>
 </body>
 </html>

@@ -215,7 +215,7 @@
     <button type="button" data-p="3" data-c="3,2,1,1,2,1" data-e="7,9,2,9,2,6" data-budget="22" data-opt="20" data-row="4">Easy</button>
     <button type="button" data-p="3" data-c="1,1,2,2,2,1,1,2,1" data-e="6,4,8,3,8,2,9,4,8" data-budget="31" data-opt="31" data-row="5">Medium</button>
     <button type="button" data-p="4" data-c="2,1,3,1,1,3,1,1,3,1,2,1,1,1" data-e="6,5,5,8,7,5,9,4,3,2,3,2,3,5" data-budget="48" data-opt="48" data-row="5">Hard</button>
-    <button type="button" data-daily>Daily</button>
+    <button type="button" data-daily>Bonus</button>
   </div>
   <ul id="info">
     <li>A tap only works when the spot before has a pebble. A hold works anywhere.</li>
@@ -252,8 +252,8 @@
 <script src="../shared/puzzles.js?v=3"></script>
 <script src="../shared/dailies.js?v=4"></script>
 <script src="../shared/progress.js?v=4"></script>
-<script src="../shared/daily-mode.js?v=4"></script>
-<script src="../shared/beats.js?v=5"></script>
+<script src="../shared/daily-mode.js?v=5"></script>
+<script src="../shared/beats.js?v=6"></script>
 <script>
   // Non-uniform pebble game. Like the erasure game, but every spot i has its own
   // two prices: C[i] to place or remove a pebble with a tap (predecessor must be
@@ -625,7 +625,7 @@
   $('reset').addEventListener('click', buttonTap(reset));
   board.addEventListener('contextmenu', e => e.preventDefault());
   kit.init();
-  // Today's daily puzzle is the last level button (shared/daily-mode.js).
+  // Today's bonus challenge is the last level button (shared/daily-mode.js).
   const daily = PebbleDaily.attach('prices', 'prices/');
   PebbleBeats.toggleButton(document.getElementById('beats'));
   setLevel(daily.wanted() ? daily.button : levelButtons[0]);
@@ -639,6 +639,6 @@
   window.addEventListener('hashchange', openAbout);
   openAbout();
 </script>
-<script src="../shared/intro.js?v=3" data-game="prices"></script>
+<script src="../shared/intro.js?v=4" data-game="prices"></script>
 </body>
 </html>

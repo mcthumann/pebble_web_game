@@ -160,7 +160,7 @@
     <button type="button" data-p="3" data-opt="9">Easy</button>
     <button type="button" data-p="4" data-opt="25">Medium</button>
     <button type="button" data-p="5" data-opt="71">Hard</button>
-    <button type="button" data-daily>Daily</button>
+    <button type="button" data-daily>Bonus</button>
   </div>
   <div id="info">
     <div id="top">
@@ -188,8 +188,8 @@
 </main>
 <script src="../shared/dailies.js?v=4"></script>
 <script src="../shared/progress.js?v=4"></script>
-<script src="../shared/daily-mode.js?v=4"></script>
-<script src="../shared/beats.js?v=5"></script>
+<script src="../shared/daily-mode.js?v=5"></script>
+<script src="../shared/beats.js?v=6"></script>
 <script>
   // Clean finish (Knill's game): win when the flag holds the only pebble.
   // Easy, Medium, Hard give 3, 4, 5 pebbles. With P pebbles the furthest spot
@@ -440,7 +440,7 @@
   function setLevel(btn) {
     daily.chose(btn);
     P = Number(btn.dataset.p);
-    N = btn.dataset.n ? Number(btn.dataset.n) : 2 ** (P - 1);   // the daily sets its own flag
+    N = btn.dataset.n ? Number(btn.dataset.n) : 2 ** (P - 1);   // the bonus sets its own flag
     OPT = Number(btn.dataset.opt);
     document.getElementById('opt').textContent = OPT;
     levelName = btn.dataset.name;
@@ -454,7 +454,7 @@
   document.getElementById('hintBtn').addEventListener('click', () =>
     document.getElementById('info').classList.toggle('open'));
   kit.init();
-  // Today's daily puzzle is the last level button (shared/daily-mode.js).
+  // Today's bonus challenge is the last level button (shared/daily-mode.js).
   const daily = PebbleDaily.attach('clean', 'clean/');
   PebbleBeats.toggleButton(document.getElementById('beats'));
   setLevel(daily.wanted() ? daily.button : levelButtons[0]);
@@ -468,6 +468,6 @@
   window.addEventListener('hashchange', openAbout);
   openAbout();
 </script>
-<script src="../shared/intro.js?v=3" data-game="clean"></script>
+<script src="../shared/intro.js?v=4" data-game="clean"></script>
 </body>
 </html>

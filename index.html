@@ -144,7 +144,7 @@
   }
   #mode a.sel { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
   body.won #mode { display: none; }
-  /* More to play: the daily puzzle, harder challenges, and focus sound. */
+  /* More to play: bonus challenges, harder challenges, and game music. */
   #more { display: flex; flex-direction: column; gap: 10px; border-top: 2px solid var(--faint); padding-top: 14px; }
   #more h2 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
   #more .card { display: block; padding: 12px 14px; border: 2px solid var(--faint); border-radius: 12px; color: var(--ink); text-decoration: none; }
@@ -186,7 +186,7 @@
     <button type="button" data-p="2" data-opt="4">Easy</button>
     <button type="button" data-p="3" data-opt="13">Medium</button>
     <button type="button" data-p="4" data-opt="38">Hard</button>
-    <button type="button" data-daily>Daily</button>
+    <button type="button" data-daily>Bonus</button>
   </div>
   <div id="info">
     <div id="top">
@@ -214,9 +214,9 @@
   <section id="more" aria-label="More to play">
     <h2>More to play</h2>
     <div class="card" id="dailyCard">
-      <span class="kick">Daily puzzles</span>
-      <b id="dailyTitle">Daily puzzles</b>
-      <span id="dailyState">A new puzzle in every game, every day.</span>
+      <span class="kick">Bonus challenges</span>
+      <b id="dailyTitle">Bonus challenges</b>
+      <span id="dailyState">A fresh challenge in every game, every day.</span>
       <div class="dailies" id="dailies"></div>
     </div>
     <div class="card">
@@ -238,8 +238,8 @@
 <script src="shared/puzzles.js?v=3"></script>
 <script src="shared/dailies.js?v=4"></script>
 <script src="shared/progress.js?v=4"></script>
-<script src="shared/daily-mode.js?v=4"></script>
-<script src="shared/beats.js?v=5"></script>
+<script src="shared/daily-mode.js?v=5"></script>
+<script src="shared/beats.js?v=6"></script>
 <script>
   // Easy, Medium, Hard give 2, 3, 4 pebbles. With P pebbles the furthest
   // reachable spot is 2^P - 1, so that is where the flag goes: 3, 7, 15.
@@ -486,7 +486,7 @@
   function setLevel(btn) {
     daily.chose(btn);
     P = Number(btn.dataset.p);
-    N = btn.dataset.n ? Number(btn.dataset.n) : 2 ** P - 1;   // the daily sets its own flag
+    N = btn.dataset.n ? Number(btn.dataset.n) : 2 ** P - 1;   // the bonus sets its own flag
     OPT = Number(btn.dataset.opt);
     document.getElementById('opt').textContent = OPT;
     levelName = btn.dataset.name;
@@ -500,7 +500,7 @@
   document.getElementById('hintBtn').addEventListener('click', () =>
     document.getElementById('info').classList.toggle('open'));
   kit.init();
-  // Today's daily puzzle is the last level button (shared/daily-mode.js).
+  // Today's bonus challenge is the last level button (shared/daily-mode.js).
   const daily = PebbleDaily.attach('reversible', '');
   PebbleBeats.toggleButton(document.getElementById('beats'));
   setLevel(daily.wanted() ? daily.button : levelButtons[0]);
@@ -515,33 +515,33 @@
   openAbout();
 </script>
 <script>
-  // More to play: today's daily puzzles, challenge stars and the game music.
+  // More to play: today's bonus challenges, challenge stars and the game music.
   (() => {
     const prog = PebbleProgress, key = prog.todayKey(), num = prog.dailyNumber(key);
-    // Today's puzzle in every game. Prices has its own Daily page, with the
-    // hardest puzzles; the rest open the Daily level of their game.
-    const GAMES = [['reversible', 'Reversible', '#daily'], ['clean', 'Clean finish', 'clean/#daily'], ['erase', 'Erasure', 'erase/#daily'],
-                   ['prices', 'Prices', 'daily/'], ['pits', 'Pits', 'pits/#daily'], ['spooky', 'Spooky', 'spooky/#daily'],
-                   ['dag', 'DAG', 'dag/#daily'], ['redblue', 'Red-blue', 'redblue/#daily'], ['clocked', 'Clocked', 'clocked/#daily']];
+    // Today's bonus challenge in every game. Prices has its own page for it
+    // (daily/), with the hardest puzzles; the rest open the Bonus level of their game.
+    const GAMES = [['reversible', 'Reversible', '#bonus'], ['clean', 'Clean finish', 'clean/#bonus'], ['erase', 'Erasure', 'erase/#bonus'],
+                   ['prices', 'Prices', 'daily/'], ['pits', 'Pits', 'pits/#bonus'], ['spooky', 'Spooky', 'spooky/#bonus'],
+                   ['dag', 'DAG', 'dag/#bonus'], ['redblue', 'Red-blue', 'redblue/#bonus'], ['clocked', 'Clocked', 'clocked/#bonus']];
     function draw() {
       let solved = 0;
       document.getElementById('dailies').innerHTML = GAMES.map(([game, name, href]) => {
         const r = prog.gameDaily(game, key), opt = r && r.best <= r.opt;
         if (r) solved++;
         return '<a href="' + href + '" class="' + (opt ? 'opt' : r ? 'done' : '') + '">' + name +
-          '<i>' + (opt ? '★ optimal' : r ? '☆ solved' : 'today') + '</i></a>';
+          '<i>' + (opt ? '★ optimal' : r ? '☆ solved' : 'new') + '</i></a>';
       }).join('');
       const s = prog.streak();
       document.getElementById('dailyState').textContent =
-        (solved ? solved + ' of ' + GAMES.length + ' solved today' : 'A new puzzle in every game, every day.') +
+        (solved ? solved + ' of ' + GAMES.length + ' solved today' : 'A fresh challenge in every game, every day.') +
         (s ? ' · \u{1F525} ' + s + '-day streak' : '');
     }
-    document.getElementById('dailyTitle').textContent = 'Daily #' + num + ' · ' + prog.prettyDate(key);
+    document.getElementById('dailyTitle').textContent = 'Bonus #' + num + ' · ' + prog.prettyDate(key);
     draw();
-    // Reversible's daily is on this page: open it and go up to the board.
+    // Reversible's bonus is on this page: open it and go up to the board.
     document.getElementById('dailies').addEventListener('click', e => {
       const a = e.target.closest('a');
-      if (!a || a.getAttribute('href') !== '#daily') return;
+      if (!a || a.getAttribute('href') !== '#bonus') return;
       e.preventDefault();
       if (!daily.active()) daily.button.click();
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -554,6 +554,6 @@
     PebbleBeats.picker(document.getElementById('moods'), document.getElementById('moodNote'));
   })();
 </script>
-<script src="shared/intro.js?v=3" data-game="reversible"></script>
+<script src="shared/intro.js?v=4" data-game="reversible"></script>
 </body>
 </html>

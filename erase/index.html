@@ -208,7 +208,7 @@
     <button type="button" data-p="3" data-n="6" data-lam="4" data-budget="18" data-opt="16" data-row="4">Easy</button>
     <button type="button" data-p="4" data-n="8" data-lam="5" data-budget="21" data-opt="21" data-row="4">Medium</button>
     <button type="button" data-p="4" data-n="16" data-lam="5" data-budget="47" data-opt="47" data-row="5">Hard</button>
-    <button type="button" data-daily>Daily</button>
+    <button type="button" data-daily>Bonus</button>
   </div>
   <ul id="info">
     <li>A tap only works when the spot before has a pebble. A hold works anywhere.</li>
@@ -244,8 +244,8 @@
 </main>
 <script src="../shared/dailies.js?v=4"></script>
 <script src="../shared/progress.js?v=4"></script>
-<script src="../shared/daily-mode.js?v=4"></script>
-<script src="../shared/beats.js?v=5"></script>
+<script src="../shared/daily-mode.js?v=5"></script>
+<script src="../shared/beats.js?v=6"></script>
 <script>
   // Semi-reversible pebble game. A tap places or removes a pebble on a spot whose
   // predecessor is pebbled (cost 1). Holding a pebble erases it from anywhere
@@ -598,7 +598,7 @@
   $('reset').addEventListener('click', buttonTap(reset));
   board.addEventListener('contextmenu', e => e.preventDefault());
   kit.init();
-  // Today's daily puzzle is the last level button (shared/daily-mode.js).
+  // Today's bonus challenge is the last level button (shared/daily-mode.js).
   const daily = PebbleDaily.attach('erase', 'erase/');
   PebbleBeats.toggleButton(document.getElementById('beats'));
   setLevel(daily.wanted() ? daily.button : levelButtons[0]);
@@ -612,6 +612,6 @@
   window.addEventListener('hashchange', openAbout);
   openAbout();
 </script>
-<script src="../shared/intro.js?v=3" data-game="erase"></script>
+<script src="../shared/intro.js?v=4" data-game="erase"></script>
 </body>
 </html>
