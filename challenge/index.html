@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Pebble Challenges</title>
+<meta name="description" content="Pebble puzzles from hard to extreme, graded by an exact solver. Every budget is the optimum.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Pebble Games">
+<meta property="og:title" content="Pebble Challenges">
+<meta property="og:description" content="Pebble puzzles from hard to extreme, graded by an exact solver. Every budget is the optimum.">
+<meta property="og:url" content="https://mcthumann.github.io/pebble_web_game/challenge/">
+<meta property="og:image" content="https://mcthumann.github.io/pebble_web_game/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../shared/priced.css">
+<style>
+  #tiers { display: flex; gap: 6px; }
+  #tiers button { flex: 1; padding: 7px 0; line-height: 1.15; }
+  #tiers button i { display: block; font-style: normal; font-size: 12px; font-weight: 600; color: var(--muted); }
+  #tiers button.sel { background: var(--pebble); border-color: var(--pebble); color: #fff; }
+  #tiers button.sel i { color: rgba(255,255,255,.75); }
+  #picker { display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; }
+  #picker button {
+    padding: 5px 0; font-size: 13px; font-weight: 700; border-radius: 8px; border-width: 1.5px;
+    color: var(--muted);
+  }
+  #picker button.solved { color: #8A6A00; background: #FFF3C4; border-color: var(--gold); }
+  #picker button.sel { color: #fff; background: var(--pebble); border-color: var(--pebble); }
+  #picker button.sel.solved { box-shadow: inset 0 -3px 0 var(--gold); }
+  body.done #tiers button:not(.sel), body.done #picker button:not(.sel) { background: transparent; color: #fff; }
+  body.done #tiers button i { color: rgba(255,255,255,.8); }
+</style>
+</head>
+<body>
+<main>
+  <header id="head">
+    <div class="title"><span class="kicker">Pebble Games</span><h1>Challenges</h1></div>
+    <button class="beats-toggle" id="beats" type="button"></button>
+    <a href="../">Home</a>
+  </header>
+  <div id="tiers" role="tablist"></div>
+  <div id="picker" aria-label="Puzzles"></div>
+  <p id="rules">A <b>tap</b> places or removes a pebble when the spot before has one: pay the <span class="price">outlined</span> price. A <b>hold</b> erases from anywhere: pay the <span class="price e">orange</span> price. Finish with only the flag. The budget is the exact optimum. <button id="hintBtn" type="button">Hint</button></p>
+  <p id="hint" hidden></p>
+  <div id="budget" aria-live="polite">
+    <div class="num"><span class="lbl">Budget left</span><b id="left"></b> <span id="of"></span></div>
+    <div id="track-bar"><div id="fill"></div></div>
+    <span id="delta" aria-hidden="true"></span>
+  </div>
+  <ol id="goal">
+    <li id="g1" data-n="1">Reach the flag</li>
+    <li id="g2" data-n="2" aria-live="polite"></li>
+  </ol>
+  <div id="result"><h1 id="verdict"></h1><p id="time"></p><p id="summary"></p><p id="detail"></p><p id="extra"></p><div class="actions"><button id="share" type="button">Share</button><button id="next" type="button"></button></div></div>
+  <svg id="board" role="group" aria-label="Pebble line"></svg>
+  <div id="bar">
+    <div id="hand"></div>
+    <button id="reset" type="button">Reset</button>
+  </div>
+</main>
+<script src="../shared/puzzles.js"></script>
+<script src="../shared/progress.js"></script>
+<script src="../shared/priced.js"></script>
+<script src="../shared/beats.js"></script>
+<script>
+  // Three tiers of twelve, from puzzles.js. tools/make_puzzles.py grades each
+  // puzzle by how unlikely random legal play is to hit the optimum (the Prices
+  // page's own Hard grades 16.3): Hard about 15.5 to 18, Very hard 19.5 to 21.5,
+  // Extreme 24 and up, where every optimal route also erases the same spots.
+  // Within a tier the puzzles run from easiest to hardest.
+  const $ = id => document.getElementById(id);
+  const prog = PebbleProgress, ALL = PEBBLE_PUZZLES.challenge;
+  const TIERS = [['hard', 'Hard'], ['veryhard', 'Very hard'], ['extreme', 'Extreme']];
+  const NAME = Object.fromEntries(TIERS);
+  const URL_CH = 'https://mcthumann.github.io/pebble_web_game/challenge/';
+  let tier = 'hard', idx = 0, shareText = '';
+
+  const firstOpen = t => { const i = ALL[t].findIndex((_, k) => !prog.challengeSolved(t, k)); return i < 0 ? 0 : i; };
+  const label = (t, k) => NAME[t] + ' ' + (k + 1);
+
+  function drawTiers() {
+    $('tiers').innerHTML = TIERS.map(([t, name]) =>
+      '<button type="button" role="tab" data-tier="' + t + '" class="' + (t === tier ? 'sel' : '') + '" aria-selected="' + (t === tier) + '">' +
+      name + '<i>' + prog.tierSolved(t) + ' / ' + ALL[t].length + ' ★</i></button>').join('');
+    $('tiers').querySelectorAll('button').forEach(b => b.addEventListener('click', () => select(b.dataset.tier, firstOpen(b.dataset.tier))));
+  }
+
+  function drawPicker() {
+    $('picker').innerHTML = ALL[tier].map((_, k) =>
+      '<button type="button" data-k="' + k + '" class="' + (prog.challengeSolved(tier, k) ? 'solved ' : '') + (k === idx ? 'sel' : '') +
+      '" aria-label="' + label(tier, k) + (prog.challengeSolved(tier, k) ? ', solved' : '') + '">' + (k + 1) + '</button>').join('');
+    $('picker').querySelectorAll('button').forEach(b => b.addEventListener('click', () => select(tier, Number(b.dataset.k))));
+  }
+
+  function select(t, k) {
+    tier = t; idx = k;
+    history.replaceState(null, '', '#' + t + '-' + (k + 1));
+    const q = ALL[t][k];
+    $('hint').hidden = true;
+    $('hint').textContent = 'The optimal route erases ' + q.erase.join(' or ') + ' pebbles' +
+      (q.plans === 1 ? ', and only one choice of which pebbles works.' : '.');
+    drawTiers();
+    drawPicker();
+    game.load(q);
+  }
+
+  function nextTarget() {
+    if (idx + 1 < ALL[tier].length) return [tier, idx + 1];
+    const t = TIERS.findIndex(([x]) => x === tier);
+    return t + 1 < TIERS.length ? [TIERS[t + 1][0], 0] : null;
+  }
+
+  const game = PricedGame.create(r => {
+    const name = label(tier, idx), old = prog.challengeResult(tier, idx);
+    $('verdict').textContent = r.won ? 'Solved!' : 'Out of budget';
+    $('time').textContent = r.won ? r.time : '';
+    $('summary').textContent = r.won
+      ? name + ' · cost ' + r.cost + ', the optimum'
+      : r.flagged ? 'Flag reached, but ' + r.stray + (r.stray === 1 ? ' pebble' : ' pebbles') + ' still on the line'
+      : 'No move fits in the budget left';
+    $('detail').textContent = 'taps ' + r.tapCost + ' + erasures ' + r.eraseCost + ' = ' + r.cost;
+    $('extra').textContent = '';
+    if (!r.won) { PricedGame.buzz(25); return; }
+    prog.saveChallenge(tier, idx, r.cost, r.opt, r.ms);
+    $('extra').textContent = !old ? 'New star ★' : old.ms && r.ms < old.ms ? 'New best time' : old.ms ? 'Best time: ' + prog.clock(old.ms) : '';
+    shareText = '★ Pebble Challenge · ' + name + ' · optimal in ' + r.time + '\n' + URL_CH + '#' + tier + '-' + (idx + 1);
+    const nt = nextTarget();
+    $('next').hidden = !nt;
+    if (nt) $('next').textContent = 'Next: ' + label(nt[0], nt[1]) + ' →';
+    drawTiers();
+    drawPicker();
+    PricedGame.buzz([15, 60, 15, 60, 30]);
+    setTimeout(PricedGame.confetti, 60);
+  });
+
+  $('share').addEventListener('click', () => PricedGame.share(shareText, $('share')));
+  $('next').addEventListener('click', () => { const nt = nextTarget(); if (nt) select(nt[0], nt[1]); });
+  $('hintBtn').addEventListener('click', () => { $('hint').hidden = !$('hint').hidden; });
+  PebbleBeats.toggleButton($('beats'));
+
+  // Open the tier (and puzzle) in the link, e.g. #extreme or #extreme-4.
+  function fromHash() {
+    const m = location.hash.slice(1).match(/^(hard|veryhard|extreme)(?:-(\d+))?$/);
+    if (!m) return select(tier, firstOpen(tier));
+    const k = m[2] ? Math.min(ALL[m[1]].length, Math.max(1, Number(m[2]))) - 1 : firstOpen(m[1]);
+    select(m[1], k);
+  }
+  window.addEventListener('hashchange', fromHash);
+  fromHash();
+</script>
+</body>
+</html>

@@ -144,6 +144,25 @@
   }
   #mode a.sel { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
   body.won #mode { display: none; }
+  /* More to play: the daily puzzle, harder challenges, and focus sound. */
+  #more { display: flex; flex-direction: column; gap: 10px; border-top: 2px solid var(--faint); padding-top: 14px; }
+  #more h2 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  #more .card { display: block; padding: 12px 14px; border: 2px solid var(--faint); border-radius: 12px; color: var(--ink); text-decoration: none; }
+  #more .card b { display: block; font-size: 18px; line-height: 1.25; }
+  #more .card > span { display: block; margin-top: 2px; font-size: 14px; line-height: 1.4; color: #4A5058; }
+  #more #dailyCard { border-color: var(--pebble); }
+  #more .card > .kick { margin: 0 0 2px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  #more #dailyCard .go { margin-top: 6px; font-weight: 650; color: var(--ink); }
+  #more .tiers { display: flex; gap: 6px; margin-top: 10px; }
+  #more .tiers a {
+    flex: 1; text-align: center; padding: 7px 0; border: 2px solid var(--faint); border-radius: 10px;
+    font-size: 14px; font-weight: 650; color: var(--ink); text-decoration: none;
+  }
+  #more .tiers a i { display: block; font-style: normal; font-size: 12px; font-weight: 600; color: var(--muted); }
+  #more .moods { display: flex; padding: 3px; gap: 3px; margin-top: 10px; background: #F4F5F7; border: 2px solid var(--faint); border-radius: 12px; }
+  #more .moods button { flex: 1; padding: 7px 0; border: 0; border-radius: 8px; background: transparent; font-size: 15px; font-weight: 650; color: var(--muted); }
+  #more .moods button.sel { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  body.won #more { display: none; }
 </style>
 </head>
 <body>
@@ -181,6 +200,29 @@
     <p class="refs">Bennett, <i>SIAM J. Comput.</i> 1989 · Knill, <a href="https://arxiv.org/abs/math/9508218">arXiv:math/9508218</a></p>
     <p class="refs"><a href="games/">All games</a></p>
   </details>
+  <section id="more" aria-label="More to play">
+    <h2>More to play</h2>
+    <a class="card" id="dailyCard" href="daily/">
+      <span class="kick">Daily puzzle</span>
+      <b id="dailyTitle">Daily puzzle</b>
+      <span id="dailyState">A new hard puzzle every day.</span>
+      <span class="go">Play today's &rarr;</span>
+    </a>
+    <div class="card">
+      <b>Challenges</b>
+      <span>Twelve puzzles per tier, graded by an exact solver. The budget is always the optimum.</span>
+      <div class="tiers">
+        <a href="challenge/#hard" data-tier="hard">Hard<i></i></a>
+        <a href="challenge/#veryhard" data-tier="veryhard">Very hard<i></i></a>
+        <a href="challenge/#extreme" data-tier="extreme">Extreme<i></i></a>
+      </div>
+    </div>
+    <div class="card">
+      <b>Focus sound</b>
+      <span id="moodNote">Binaural beats under soft chords. Use headphones.</span>
+      <div class="moods" id="moods"></div>
+    </div>
+  </section>
 </main>
 <script>
   // Easy, Medium, Hard give 2, 3, 4 pebbles. With P pebbles the furthest
@@ -443,6 +485,23 @@
   }
   window.addEventListener('hashchange', openAbout);
   openAbout();
+</script>
+<script src="shared/puzzles.js"></script>
+<script src="shared/progress.js"></script>
+<script src="shared/beats.js"></script>
+<script>
+  // More to play: today's daily puzzle, challenge stars and the focus sound.
+  (() => {
+    const prog = PebbleProgress, key = prog.todayKey(), num = prog.dailyNumber(key);
+    const best = prog.dailyBest(key), s = prog.streak();
+    const fire = s ? ' · \u{1F525} ' + s + '-day streak' : '';
+    document.getElementById('dailyTitle').textContent = 'Daily #' + num + ' · ' + prog.prettyDate(key);
+    document.getElementById('dailyState').textContent = (best ? '✓ Solved in ' + prog.clock(best) : 'A new hard puzzle every day.') + fire;
+    document.querySelectorAll('#more .tiers a').forEach(a => {
+      a.querySelector('i').textContent = prog.tierSolved(a.dataset.tier) + ' / ' + PEBBLE_PUZZLES.challenge[a.dataset.tier].length + ' ★';
+    });
+    PebbleBeats.picker(document.getElementById('moods'), document.getElementById('moodNote'));
+  })();
 </script>
 </body>
 </html>

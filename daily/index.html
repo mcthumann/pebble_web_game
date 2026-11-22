@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Pebble Daily</title>
+<meta name="description" content="A new hard pebble puzzle every day. The budget is the exact optimum: no slack.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Pebble Games">
+<meta property="og:title" content="Pebble Daily">
+<meta property="og:description" content="A new hard pebble puzzle every day. The budget is the exact optimum: no slack.">
+<meta property="og:url" content="https://mcthumann.github.io/pebble_web_game/daily/">
+<meta property="og:image" content="https://mcthumann.github.io/pebble_web_game/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../shared/priced.css">
+<style>
+  #status { display: flex; gap: 8px; }
+  #status span {
+    flex: 1; padding: 7px 10px; border: 2px solid var(--faint); border-radius: 12px;
+    font-size: 14px; font-weight: 650; text-align: center;
+  }
+  #status #today.solved { border-color: var(--green); color: var(--green); }
+  #countdown { margin: 4px 0 0; text-align: center; font-size: 14px; font-weight: 600; color: var(--muted); }
+  #countdown a { color: inherit; }
+  body.done #status { display: none; }
+  body.done #countdown { color: rgba(255,255,255,.85); }
+</style>
+</head>
+<body>
+<main>
+  <header id="head">
+    <div class="title"><span class="kicker" id="date">Pebble Daily</span><h1 id="title">Daily</h1></div>
+    <button class="beats-toggle" id="beats" type="button"></button>
+    <a href="../">Home</a>
+  </header>
+  <div id="status"><span id="streak"></span><span id="today"></span></div>
+  <p id="rules">A <b>tap</b> places or removes a pebble when the spot before has one: pay the <span class="price">outlined</span> price. A <b>hold</b> erases from anywhere: pay the <span class="price e">orange</span> price. Finish with only the flag. The budget is the exact optimum. <button id="hintBtn" type="button">Hint</button></p>
+  <p id="hint" hidden></p>
+  <div id="budget" aria-live="polite">
+    <div class="num"><span class="lbl">Budget left</span><b id="left"></b> <span id="of"></span></div>
+    <div id="track-bar"><div id="fill"></div></div>
+    <span id="delta" aria-hidden="true"></span>
+  </div>
+  <ol id="goal">
+    <li id="g1" data-n="1">Reach the flag</li>
+    <li id="g2" data-n="2" aria-live="polite"></li>
+  </ol>
+  <div id="result"><h1 id="verdict"></h1><p id="time"></p><p id="summary"></p><p id="detail"></p><p id="extra"></p><div class="actions"><button id="share" type="button">Share</button><a id="next" href="../challenge/">Challenges &rarr;</a></div></div>
+  <svg id="board" role="group" aria-label="Pebble line"></svg>
+  <div id="bar">
+    <div id="hand"></div>
+    <button id="reset" type="button">Reset</button>
+  </div>
+  <p id="countdown"></p>
+</main>
+<script src="../shared/puzzles.js"></script>
+<script src="../shared/progress.js"></script>
+<script src="../shared/priced.js"></script>
+<script src="../shared/beats.js"></script>
+<script>
+  // Everyone gets the same puzzle on the same (local) date, from puzzles.js.
+  // Every daily puzzle is graded at about the Prices game's Hard level, and its
+  // budget is the exact optimum, so any solve is an optimal solve.
+  const $ = id => document.getElementById(id);
+  const prog = PebbleProgress, URL_DAILY = 'https://mcthumann.github.io/pebble_web_game/daily/';
+  const key = prog.todayKey(), num = prog.dailyNumber(key), puzzle = prog.dailyPuzzle(num);
+  let shareText = '';
+
+  $('title').textContent = 'Daily #' + num;
+  $('date').textContent = 'Pebble Daily · ' + prog.prettyDate(key);
+  document.title = 'Pebble Daily #' + num;
+  $('hint').textContent = 'The optimal route erases ' + puzzle.erase.join(' or ') + ' pebbles.';
+
+  function status() {
+    const s = prog.streak(), best = prog.dailyBest(key);
+    $('streak').textContent = s ? '\u{1F525} ' + s + '-day streak' : 'No streak yet';
+    $('today').textContent = best ? '✓ Solved in ' + prog.clock(best) : 'Not solved today';
+    $('today').classList.toggle('solved', !!best);
+  }
+
+  const game = PricedGame.create(r => {
+    $('verdict').textContent = r.won ? 'Solved!' : 'Out of budget';
+    $('time').textContent = r.won ? r.time : '';
+    $('summary').textContent = r.won
+      ? 'Daily #' + num + ' · cost ' + r.cost + ', the optimum'
+      : r.flagged ? 'Flag reached, but ' + r.stray + (r.stray === 1 ? ' pebble' : ' pebbles') + ' still on the line'
+      : 'No move fits in the budget left';
+    $('detail').textContent = 'taps ' + r.tapCost + ' + erasures ' + r.eraseCost + ' = ' + r.cost;
+    $('extra').textContent = '';
+    if (!r.won) { PricedGame.buzz(25); return; }
+    const before = prog.dailyBest(key);
+    prog.saveDaily(key, r.ms);
+    const s = prog.streak();
+    $('extra').textContent = before
+      ? (r.ms < before ? 'New best time today' : 'Best today: ' + prog.clock(before))
+      : s > 1 ? '\u{1F525} ' + s + '-day streak' : 'Streak started. Come back tomorrow.';
+    shareText = '★ Pebble Daily #' + num + ' · optimal in ' + r.time + (s > 1 ? ' · \u{1F525}' + s : '') + '\n' + URL_DAILY;
+    status();
+    PricedGame.buzz([15, 60, 15, 60, 30]);
+    setTimeout(PricedGame.confetti, 60);
+  });
+
+  game.load(puzzle);
+  status();
+  $('share').addEventListener('click', () => PricedGame.share(shareText, $('share')));
+  $('hintBtn').addEventListener('click', () => { $('hint').hidden = !$('hint').hidden; });
+  PebbleBeats.toggleButton($('beats'));
+
+  // Countdown to the next puzzle, at local midnight.
+  function tick() {
+    if (prog.todayKey() !== key) { $('countdown').innerHTML = 'A new puzzle is out. <a href="">Load it</a>'; return; }
+    const now = new Date(), next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const mins = Math.ceil((next - now) / 60000), h = Math.floor(mins / 60), m = mins % 60;
+    $('countdown').textContent = 'Next puzzle in ' + (h ? h + ' h ' : '') + m + ' min';
+  }
+  tick();
+  setInterval(tick, 30000);
+</script>
+</body>
+</html>

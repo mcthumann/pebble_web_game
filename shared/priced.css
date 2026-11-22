@@ -1,0 +1,159 @@
+/* Shared look for the Daily and Challenge pages: the Prices game, made compact
+   so the largest board (20 spots) still fits on one phone screen. */
+:root {
+  --ink: #1F2329; --muted: #7A808A; --faint: #D5D9DF; --soft: #F4F5F7;
+  --pebble: #1A1C20; --red: #E31A1C; --green: #009E73; --erase: #D55E00;
+  --low: #F2B705; --gold: #E0A800;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; min-height: 100%; overscroll-behavior: none; }
+body {
+  background: #fff; color: var(--ink);
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  touch-action: manipulation; user-select: none; -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+main {
+  max-width: 480px; margin: 0 auto; padding: 16px 16px 24px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+button {
+  font: inherit; font-size: 15px; font-weight: 600; padding: 9px 14px;
+  background: #fff; color: var(--ink); border: 2px solid var(--faint); border-radius: 10px;
+}
+
+/* Header: title, focus sound, and the way home. */
+#head { display: flex; align-items: center; gap: 8px; margin-top: -4px; }
+#head .title { flex: 1; min-width: 0; }
+#head .kicker { display: block; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+#head h1 { margin: 0; font-size: 22px; line-height: 1.2; }
+#head a, #head .beats-toggle {
+  flex: none; display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; font-size: 15px; font-weight: 650; text-decoration: none;
+  color: var(--ink); background: #fff; border: 2px solid var(--faint); border-radius: 10px;
+}
+
+/* Rules in one short paragraph, with an optional hint. */
+#rules { margin: 0; font-size: 14px; line-height: 1.45; color: #4A5058; }
+#rules .price {
+  display: inline-block; padding: 0 6px; border-radius: 6px; background: #fff;
+  border: 1.5px solid var(--pebble); font-size: 12px; font-weight: 700; color: var(--ink); white-space: nowrap;
+}
+#rules .price.e { background: var(--erase); border-color: var(--erase); color: #fff; }
+#hintBtn {
+  padding: 0; border: 0; background: none; font-size: 14px; font-weight: 700;
+  color: var(--ink); text-decoration: underline; text-underline-offset: 2px;
+}
+#hint { margin: 0; padding: 8px 12px; border-radius: 10px; background: var(--soft); font-size: 14px; font-weight: 600; }
+
+/* Budget: number on the left, a bar that empties as it is spent. */
+#budget {
+  position: relative; display: flex; align-items: center; gap: 12px;
+  padding: 7px 12px; border: 2px solid var(--faint); border-radius: 12px;
+  transition: background .2s, border-color .2s;
+}
+#budget .num { min-width: 62px; }
+#budget .lbl { display: block; font-size: 12px; font-weight: 600; color: var(--muted); }
+#budget b { font-size: 24px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+#budget #of { font-size: 13px; font-weight: 600; color: var(--muted); }
+#track-bar { flex: 1; height: 12px; border-radius: 6px; background: var(--faint); overflow: hidden; }
+#fill { height: 100%; width: 100%; background: var(--pebble); transition: width .25s, background .25s; }
+#budget.low { background: #FFF6D6; border-color: var(--low); }
+#budget.low #fill { background: var(--low); }
+#budget.bad { background: var(--red); border-color: var(--red); }
+#budget.bad .lbl, #budget.bad b, #budget.bad #of { color: #fff; }
+#delta {
+  position: absolute; top: 6px; left: 74px; font-size: 16px; font-weight: 700;
+  color: var(--erase); opacity: 0; pointer-events: none;
+}
+#delta.show { animation: spent .9s ease-out; }
+@keyframes spent { 0% { opacity: 1; transform: none; } 60% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10px); } }
+
+/* Goal: two steps, ticked off live. */
+#goal { display: flex; gap: 8px; margin: 0 0 4px; padding: 0; list-style: none; }
+#goal li {
+  flex: 1; display: flex; align-items: center; gap: 7px; padding: 6px 9px;
+  border: 2px solid var(--faint); border-radius: 12px;
+  font-size: 14px; font-weight: 600; line-height: 1.2; color: var(--muted);
+}
+#goal li::before {
+  content: attr(data-n); flex: none; width: 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 13px; border: 2px solid currentColor;
+}
+#goal li.now { color: var(--ink); border-color: var(--pebble); }
+#goal li.ok { color: var(--green); border-color: var(--green); }
+#goal li.ok::before { content: "\2713"; background: var(--green); border-color: var(--green); color: #fff; }
+#goal li.urgent { background: var(--pebble); border-color: var(--pebble); color: #fff; }
+
+/* Board. */
+#board { display: block; width: 100%; height: auto; }
+#track { fill: none; stroke: var(--pebble); stroke-width: 9; stroke-linecap: round; }
+.node { cursor: pointer; touch-action: none; }
+.node .hit { fill: transparent; }
+.node .ring { fill: #fff; stroke: var(--pebble); stroke-width: 4; }
+.node .dot { fill: var(--pebble); display: none; }
+.node.on .dot { display: block; }
+.node.on .flag { display: none; }
+.node.goal .ring { stroke-dasharray: 7 5; }
+.node.fixed .ring { fill: var(--pebble); }
+.node.erased .ring { fill: var(--erase); stroke: var(--erase); }
+.node .hold {
+  fill: none; stroke: var(--erase); stroke-width: 7; stroke-linecap: round;
+  stroke-dasharray: 100; stroke-dashoffset: 100; opacity: 0; pointer-events: none;
+}
+.node.holding .hold { animation: holdfill 330ms linear 120ms forwards; }
+@keyframes holdfill { from { opacity: 1; stroke-dashoffset: 100; } to { opacity: 1; stroke-dashoffset: 0; } }
+.node.bad .ring { fill: var(--red); stroke: var(--red); }
+.node text { font-weight: 700; text-anchor: middle; }
+.node .idx { font-size: 14px; fill: var(--muted); }
+.node.fixed .idx, .node.bad .idx, .node.erased .idx { fill: #fff; }
+.node .pc rect { fill: #fff; stroke: var(--pebble); stroke-width: 1.5; }
+.node .pc text { font-size: 13px; fill: var(--ink); }
+.node .pe rect { fill: var(--erase); }
+.node .pe text { font-size: 13px; fill: #fff; }
+.node.tidy .ring { stroke: var(--erase); animation: tidy 1.1s ease-in-out infinite; }
+@keyframes tidy { 50% { stroke-width: 8; } }
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes pop { 0% { transform: scale(.3); } 65% { transform: scale(1.15); } 100% { transform: scale(1); } }
+  .node.on:not(.fixed) .dot { transform-box: fill-box; transform-origin: center; animation: pop .22s ease-out; }
+}
+
+/* Pebbles in hand and Reset. */
+#bar { display: flex; align-items: center; justify-content: space-between; }
+#hand { display: flex; align-items: center; gap: 7px; padding: 6px 10px; border-radius: 10px; font-size: 15px; }
+#hand.bad { background: var(--red); color: #fff; }
+#hand i { width: 20px; height: 20px; border-radius: 50%; background: var(--pebble); border: 2px solid var(--pebble); }
+#hand i.used { background: transparent; border-color: var(--faint); }
+
+/* Finish screen. */
+#result { display: none; text-align: center; color: #fff; margin-bottom: 8px; }
+#result h1 { margin: 0; font-size: 52px; line-height: 1.1; }
+#result p { margin: 4px 0 0; font-size: 20px; }
+#result #time { font-size: 38px; font-weight: 700; font-variant-numeric: tabular-nums; }
+#result #extra { font-weight: 650; }
+#result .actions { display: flex; justify-content: center; gap: 10px; margin-top: 12px; }
+#share {
+  padding: 7px 22px; font-size: 15px; background: transparent; color: #fff;
+  border: 2px solid #fff; border-radius: 10px;
+}
+#next {
+  padding: 7px 18px; font-size: 15px; font-weight: 650; text-decoration: none;
+  background: #fff; color: var(--green); border: 2px solid #fff; border-radius: 10px;
+}
+body.done #rules, body.done #hint, body.done #budget, body.done #goal { display: none; }
+body.done #result { display: block; }
+body.done #hand { color: #fff; }
+body.done .node .idx { fill: var(--muted); }
+body.done .node.tidy .ring { stroke: #fff; animation: none; }
+body.done button, body.done #head a, body.done #head .beats-toggle { border-color: #fff; }
+body.done #head .kicker { color: rgba(255,255,255,.8); }
+body.done #head h1 { color: #fff; }
+body.won { background: var(--green); }
+body.lost { background: var(--red); }
+body.lost #share, body.lost #next { display: none; }
+.confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+
+/* Focus sound toggle in the header. */
+.beats-toggle svg { width: 18px; height: 18px; }
+.beats-toggle.on { background: var(--pebble) !important; border-color: var(--pebble) !important; color: #fff !important; }
+.beats-toggle.waiting { border-style: dashed !important; }
