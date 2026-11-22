@@ -152,7 +152,15 @@
   #more .card > span { display: block; margin-top: 2px; font-size: 14px; line-height: 1.4; color: #4A5058; }
   #more #dailyCard { border-color: var(--pebble); }
   #more .card > .kick { margin: 0 0 2px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-  #more #dailyCard .go { margin-top: 6px; font-weight: 650; color: var(--ink); }
+  #more .dailies { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
+  #more .dailies a {
+    padding: 7px 2px; border: 2px solid var(--faint); border-radius: 10px; text-align: center;
+    font-size: 14px; font-weight: 650; line-height: 1.2; color: var(--ink); text-decoration: none;
+  }
+  #more .dailies a i { display: block; margin-top: 1px; font-style: normal; font-size: 12px; font-weight: 600; color: var(--muted); }
+  #more .dailies a.done { border-color: var(--gold); }
+  #more .dailies a.opt { border-color: var(--gold); background: #FFF3C4; }
+  #more .dailies a.done i, #more .dailies a.opt i { color: #8A6A00; }
   #more .tiers { display: flex; gap: 6px; margin-top: 10px; }
   #more .tiers a {
     flex: 1; text-align: center; padding: 7px 0; border: 2px solid var(--faint); border-radius: 10px;
@@ -164,12 +172,13 @@
   #more .moods button.sel { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
   body.won #more { display: none; }
 </style>
-<link rel="stylesheet" href="shared/intro.css?v=3">
+<link rel="stylesheet" href="shared/intro.css?v=4">
 </head>
 <body>
 <main>
   <header id="head">
     <div><span class="kicker">Pebble Games</span><h1>Reversible</h1></div>
+    <button class="beats-toggle" id="beats" type="button"></button>
     <a href="games/">Games</a>
   </header>
   <nav id="mode" aria-label="Version"><a class="sel" aria-current="page">Reach the flag</a><a href="clean/">Clean finish</a></nav>
@@ -177,6 +186,7 @@
     <button type="button" data-p="2" data-opt="4">Easy</button>
     <button type="button" data-p="3" data-opt="13">Medium</button>
     <button type="button" data-p="4" data-opt="38">Hard</button>
+    <button type="button" data-daily>Daily</button>
   </div>
   <div id="info">
     <div id="top">
@@ -203,12 +213,12 @@
   </details>
   <section id="more" aria-label="More to play">
     <h2>More to play</h2>
-    <a class="card" id="dailyCard" href="daily/">
-      <span class="kick">Daily puzzle</span>
-      <b id="dailyTitle">Daily puzzle</b>
-      <span id="dailyState">A new hard puzzle every day.</span>
-      <span class="go">Play today's &rarr;</span>
-    </a>
+    <div class="card" id="dailyCard">
+      <span class="kick">Daily puzzles</span>
+      <b id="dailyTitle">Daily puzzles</b>
+      <span id="dailyState">A new puzzle in every game, every day.</span>
+      <div class="dailies" id="dailies"></div>
+    </div>
     <div class="card">
       <b>Challenges</b>
       <span>Twelve puzzles per tier, graded by an exact solver. The budget is always the optimum.</span>
@@ -225,7 +235,11 @@
     </div>
   </section>
 </main>
-<script src="shared/beats.js?v=4"></script>
+<script src="shared/puzzles.js?v=3"></script>
+<script src="shared/dailies.js?v=4"></script>
+<script src="shared/progress.js?v=4"></script>
+<script src="shared/daily-mode.js?v=4"></script>
+<script src="shared/beats.js?v=5"></script>
 <script>
   // Easy, Medium, Hard give 2, 3, 4 pebbles. With P pebbles the furthest
   // reachable spot is 2^P - 1, so that is where the flag goes: 3, 7, 15.
@@ -256,7 +270,7 @@
     // finished optimally, so the goal is to fill every star.
     // (The games list page reads the same saved progress to show stars per game.)
     function marks() {
-      document.querySelectorAll('#levels button').forEach(b => {
+      document.querySelectorAll('#levels button:not([data-daily])').forEach(b => {
         const r = (data[KIT.game] || {})[b.dataset.name];
         b.innerHTML = b.dataset.name + (!r ? '' : starred(r)
           ? '<span class="mark star" aria-label="optimal">★</span>'
@@ -430,7 +444,7 @@
     // The clock runs from the first legal move to the pebble landing on the flag.
     if (moves === 0) startedAt = performance.now();
     moves++;
-    if (placing && i === N) { won = true; solveMs = performance.now() - startedAt; kit.finish(levelName, moves, OPT, clock(solveMs)); sound('win', i); }
+    if (placing && i === N) { won = true; solveMs = performance.now() - startedAt; kit.finish(levelName, moves, OPT, clock(solveMs), daily.opts()); daily.done(moves, OPT, solveMs); sound('win', i); }
     render();
   }
 
@@ -470,8 +484,9 @@
   }
 
   function setLevel(btn) {
+    daily.chose(btn);
     P = Number(btn.dataset.p);
-    N = 2 ** P - 1;
+    N = btn.dataset.n ? Number(btn.dataset.n) : 2 ** P - 1;   // the daily sets its own flag
     OPT = Number(btn.dataset.opt);
     document.getElementById('opt').textContent = OPT;
     levelName = btn.dataset.name;
@@ -485,7 +500,10 @@
   document.getElementById('hintBtn').addEventListener('click', () =>
     document.getElementById('info').classList.toggle('open'));
   kit.init();
-  setLevel(levelButtons[0]);
+  // Today's daily puzzle is the last level button (shared/daily-mode.js).
+  const daily = PebbleDaily.attach('reversible', '');
+  PebbleBeats.toggleButton(document.getElementById('beats'));
+  setLevel(daily.wanted() ? daily.button : levelButtons[0]);
   // A link ending in #about opens the "Why this game?" note and scrolls to it.
   function openAbout() {
     if (location.hash !== '#about') return;
@@ -496,16 +514,40 @@
   window.addEventListener('hashchange', openAbout);
   openAbout();
 </script>
-<script src="shared/puzzles.js?v=3"></script>
-<script src="shared/progress.js?v=3"></script>
 <script>
-  // More to play: today's daily puzzle, challenge stars and the focus sound.
+  // More to play: today's daily puzzles, challenge stars and the game music.
   (() => {
     const prog = PebbleProgress, key = prog.todayKey(), num = prog.dailyNumber(key);
-    const best = prog.dailyBest(key), s = prog.streak();
-    const fire = s ? ' · \u{1F525} ' + s + '-day streak' : '';
+    // Today's puzzle in every game. Prices has its own Daily page, with the
+    // hardest puzzles; the rest open the Daily level of their game.
+    const GAMES = [['reversible', 'Reversible', '#daily'], ['clean', 'Clean finish', 'clean/#daily'], ['erase', 'Erasure', 'erase/#daily'],
+                   ['prices', 'Prices', 'daily/'], ['pits', 'Pits', 'pits/#daily'], ['spooky', 'Spooky', 'spooky/#daily'],
+                   ['dag', 'DAG', 'dag/#daily'], ['redblue', 'Red-blue', 'redblue/#daily'], ['clocked', 'Clocked', 'clocked/#daily']];
+    function draw() {
+      let solved = 0;
+      document.getElementById('dailies').innerHTML = GAMES.map(([game, name, href]) => {
+        const r = prog.gameDaily(game, key), opt = r && r.best <= r.opt;
+        if (r) solved++;
+        return '<a href="' + href + '" class="' + (opt ? 'opt' : r ? 'done' : '') + '">' + name +
+          '<i>' + (opt ? '★ optimal' : r ? '☆ solved' : 'today') + '</i></a>';
+      }).join('');
+      const s = prog.streak();
+      document.getElementById('dailyState').textContent =
+        (solved ? solved + ' of ' + GAMES.length + ' solved today' : 'A new puzzle in every game, every day.') +
+        (s ? ' · \u{1F525} ' + s + '-day streak' : '');
+    }
     document.getElementById('dailyTitle').textContent = 'Daily #' + num + ' · ' + prog.prettyDate(key);
-    document.getElementById('dailyState').textContent = (best ? '✓ Solved in ' + prog.clock(best) : 'A new hard puzzle every day.') + fire;
+    draw();
+    // Reversible's daily is on this page: open it and go up to the board.
+    document.getElementById('dailies').addEventListener('click', e => {
+      const a = e.target.closest('a');
+      if (!a || a.getAttribute('href') !== '#daily') return;
+      e.preventDefault();
+      if (!daily.active()) daily.button.click();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    // Solving a puzzle here may fill a square, so redraw after each win.
+    document.addEventListener('pebble:sound', e => { if (e.detail.type === 'win') setTimeout(draw, 0); });
     document.querySelectorAll('#more .tiers a').forEach(a => {
       a.querySelector('i').textContent = prog.tierSolved(a.dataset.tier) + ' / ' + PEBBLE_PUZZLES.challenge[a.dataset.tier].length + ' ★';
     });

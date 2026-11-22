@@ -182,18 +182,20 @@
   }
   body.lost #next { display: none; }
 </style>
-<link rel="stylesheet" href="../shared/intro.css?v=3">
+<link rel="stylesheet" href="../shared/intro.css?v=4">
 </head>
 <body>
 <main>
   <header id="head">
     <div><span class="kicker">Pebble Games</span><h1>Spooky</h1></div>
+    <button class="beats-toggle" id="beats" type="button"></button>
     <a href="../games/">Games</a>
   </header>
   <div id="levels">
     <button type="button" data-p="3" data-n="5" data-opt="17" data-row="4">Easy</button>
     <button type="button" data-p="3" data-n="7" data-opt="39" data-row="4">Medium</button>
     <button type="button" data-p="4" data-n="13" data-opt="63" data-row="5">Hard</button>
+    <button type="button" data-daily>Daily</button>
   </div>
   <ul id="info">
     <li>A tap places or removes a pebble, only when the spot before has a pebble.</li>
@@ -223,6 +225,10 @@
     <p class="refs"><a href="../games/">All games</a></p>
   </details>
 </main>
+<script src="../shared/dailies.js?v=4"></script>
+<script src="../shared/progress.js?v=4"></script>
+<script src="../shared/daily-mode.js?v=4"></script>
+<script src="../shared/beats.js?v=5"></script>
 <script>
   // Spooky pebble game on a line (Gidney; Kornerup, Sadun and Soloveichik).
   // Each spot is empty, pebbled or a ghost. A tap places or removes a pebble on
@@ -259,7 +265,7 @@
     // finished optimally, so the goal is to fill every star.
     // (The games list page reads the same saved progress to show stars per game.)
     function marks() {
-      document.querySelectorAll('#levels button').forEach(b => {
+      document.querySelectorAll('#levels button:not([data-daily])').forEach(b => {
         const r = (data[KIT.game] || {})[b.dataset.name];
         b.innerHTML = b.dataset.name + (!r ? '' : starred(r)
           ? '<span class="mark star" aria-label="optimal">★</span>'
@@ -434,23 +440,27 @@
     el.badTimer = setTimeout(() => el.classList.remove('bad'), 450);
   }
 
-  function step() {
+  function step(kind) {
     if (moves === 0) startedAt = performance.now();
     moves++;
     if (state[N] === PEBBLE && strayPebbles() === 0 && count(GHOST) === 0) {
       won = true; solveMs = performance.now() - startedAt;
-      kit.finish(levelName, moves, OPT, clock(solveMs));
-    }
+      kit.finish(levelName, moves, OPT, clock(solveMs), daily.opts()); daily.done(moves, OPT, solveMs);
+      sound('win');
+    } else sound(kind);
     render();
   }
+
+  // Tell the game music (shared/beats.js) what just happened, so it can follow play.
+  function sound(type) { PebbleBeats.cue(type, state ? Math.max(state.lastIndexOf(PEBBLE), state.lastIndexOf(GHOST)) / N : 0); }
 
   // Tap: the reversible move. Pebbling a ghost brings the pebble back.
   function tap(i) {
     if (won) return;
-    if (i === 0 || state[i - 1] !== PEBBLE) { flash(nodes[i]); return; }
-    if (state[i] !== PEBBLE && inHand() === 0) { flash(nodes[i]); flash(hand); return; }
+    if (i === 0 || state[i - 1] !== PEBBLE) { sound('bad'); flash(nodes[i]); return; }
+    if (state[i] !== PEBBLE && inHand() === 0) { sound('bad'); flash(nodes[i]); flash(hand); return; }
     state[i] = state[i] === PEBBLE ? EMPTY : PEBBLE;
-    step();
+    step(state[i] === PEBBLE ? (i === N ? 'flag' : 'place') : 'remove');
   }
 
   // Hold: turn a pebble into a ghost, from anywhere.
@@ -464,7 +474,7 @@
       endHold();
       suppressClick = true;
       state[i] = GHOST;
-      step();
+      step('erase');
     }, HOLD_MS);
   }
   function release() { clearTimeout(holdTimer); endHold(); }
@@ -515,9 +525,11 @@
     moves = 0;
     won = false;
     render();
+    sound('start');
   }
 
   function setLevel(btn) {
+    daily.chose(btn);
     P = Number(btn.dataset.p);
     N = Number(btn.dataset.n);
     OPT = Number(btn.dataset.opt);
@@ -541,7 +553,10 @@
   $('reset').addEventListener('click', buttonTap(reset));
   board.addEventListener('contextmenu', e => e.preventDefault());
   kit.init();
-  setLevel(levelButtons[0]);
+  // Today's daily puzzle is the last level button (shared/daily-mode.js).
+  const daily = PebbleDaily.attach('spooky', 'spooky/');
+  PebbleBeats.toggleButton(document.getElementById('beats'));
+  setLevel(daily.wanted() ? daily.button : levelButtons[0]);
   // A link ending in #about opens the "Why this game?" note and scrolls to it.
   function openAbout() {
     if (location.hash !== '#about') return;

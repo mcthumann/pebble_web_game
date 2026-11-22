@@ -146,12 +146,13 @@
   #mode a.sel { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
   body.won #mode { display: none; }
 </style>
-<link rel="stylesheet" href="../shared/intro.css?v=3">
+<link rel="stylesheet" href="../shared/intro.css?v=4">
 </head>
 <body>
 <main>
   <header id="head">
     <div><span class="kicker">Pebble Games</span><h1>Reversible</h1></div>
+    <button class="beats-toggle" id="beats" type="button"></button>
     <a href="../games/">Games</a>
   </header>
   <nav id="mode" aria-label="Version"><a href="../">Reach the flag</a><a class="sel" aria-current="page">Clean finish</a></nav>
@@ -159,6 +160,7 @@
     <button type="button" data-p="3" data-opt="9">Easy</button>
     <button type="button" data-p="4" data-opt="25">Medium</button>
     <button type="button" data-p="5" data-opt="71">Hard</button>
+    <button type="button" data-daily>Daily</button>
   </div>
   <div id="info">
     <div id="top">
@@ -184,6 +186,10 @@
     <p class="refs"><a href="../games/">All games</a></p>
   </details>
 </main>
+<script src="../shared/dailies.js?v=4"></script>
+<script src="../shared/progress.js?v=4"></script>
+<script src="../shared/daily-mode.js?v=4"></script>
+<script src="../shared/beats.js?v=5"></script>
 <script>
   // Clean finish (Knill's game): win when the flag holds the only pebble.
   // Easy, Medium, Hard give 3, 4, 5 pebbles. With P pebbles the furthest spot
@@ -214,7 +220,7 @@
     // finished optimally, so the goal is to fill every star.
     // (The games list page reads the same saved progress to show stars per game.)
     function marks() {
-      document.querySelectorAll('#levels button').forEach(b => {
+      document.querySelectorAll('#levels button:not([data-daily])').forEach(b => {
         const r = (data[KIT.game] || {})[b.dataset.name];
         b.innerHTML = b.dataset.name + (!r ? '' : starred(r)
           ? '<span class="mark star" aria-label="optimal">★</span>'
@@ -384,16 +390,23 @@
   function tap(i) {
     if (won) return;
     const placing = !pebbled[i];
-    if (i === 0 || !pebbled[i - 1]) { flash(nodes[i]); return; }
-    if (placing && inHand() === 0) { flash(nodes[i]); flash(hand); return; }
+    if (i === 0 || !pebbled[i - 1]) { sound('bad'); flash(nodes[i]); return; }
+    if (placing && inHand() === 0) { sound('bad'); flash(nodes[i]); flash(hand); return; }
     pebbled[i] = placing;
     // The clock runs from the first legal move to the clean finish.
     if (moves === 0) startedAt = performance.now();
     moves++;
     if (placing && i === N && toClear()) kit.buzz(15);
-    if (pebbled[N] && toClear() === 0) { won = true; solveMs = performance.now() - startedAt; kit.finish(levelName, moves, OPT, clock(solveMs)); }
+    if (pebbled[N] && toClear() === 0) {
+      won = true; solveMs = performance.now() - startedAt;
+      kit.finish(levelName, moves, OPT, clock(solveMs), daily.opts()); daily.done(moves, OPT, solveMs);
+      sound('win');
+    } else sound(placing && i === N ? 'flag' : placing ? 'place' : 'remove');
     render();
   }
+
+  // Tell the game music (shared/beats.js) what just happened, so it can follow play.
+  function sound(type) { PebbleBeats.cue(type, pebbled ? pebbled.lastIndexOf(true) / N : 0); }
 
   function clock(ms) {
     const t = Math.round(ms / 100), m = Math.floor(t / 600), sec = ((t % 600) / 10).toFixed(1);
@@ -421,11 +434,13 @@
     moves = 0;
     won = false;
     render();
+    sound('start');
   }
 
   function setLevel(btn) {
+    daily.chose(btn);
     P = Number(btn.dataset.p);
-    N = 2 ** (P - 1);
+    N = btn.dataset.n ? Number(btn.dataset.n) : 2 ** (P - 1);   // the daily sets its own flag
     OPT = Number(btn.dataset.opt);
     document.getElementById('opt').textContent = OPT;
     levelName = btn.dataset.name;
@@ -439,7 +454,10 @@
   document.getElementById('hintBtn').addEventListener('click', () =>
     document.getElementById('info').classList.toggle('open'));
   kit.init();
-  setLevel(levelButtons[0]);
+  // Today's daily puzzle is the last level button (shared/daily-mode.js).
+  const daily = PebbleDaily.attach('clean', 'clean/');
+  PebbleBeats.toggleButton(document.getElementById('beats'));
+  setLevel(daily.wanted() ? daily.button : levelButtons[0]);
   // A link ending in #about opens the "Why this game?" note and scrolls to it.
   function openAbout() {
     if (location.hash !== '#about') return;

@@ -165,18 +165,20 @@
   }
   body.lost #next { display: none; }
 </style>
-<link rel="stylesheet" href="../shared/intro.css?v=3">
+<link rel="stylesheet" href="../shared/intro.css?v=4">
 </head>
 <body>
 <main>
   <header id="head">
     <div><span class="kicker">Pebble Games</span><h1>DAG</h1></div>
+    <button class="beats-toggle" id="beats" type="button"></button>
     <a href="../games/">Games</a>
   </header>
   <div id="levels">
     <button type="button" data-level="pyramid">Pyramid</button>
     <button type="button" data-level="tree">Tree</button>
     <button type="button" data-level="puzzle">Puzzle</button>
+    <button type="button" data-daily>Daily</button>
   </div>
   <ul id="info">
     <li><b>Tap</b> a node to place or remove a pebble, only when every node feeding it has one. The bottom row reads the inputs, which are always there.</li>
@@ -205,6 +207,10 @@
     <p class="refs"><a href="../games/">All games</a></p>
   </details>
 </main>
+<script src="../shared/dailies.js?v=4"></script>
+<script src="../shared/progress.js?v=4"></script>
+<script src="../shared/daily-mode.js?v=4"></script>
+<script src="../shared/beats.js?v=5"></script>
 <script>
   // Reversible (Bennett) pebbling on small DAGs. Inputs are permanent and free,
   // as spot 0 is on the line: the bottom row reads them directly. A node may
@@ -238,7 +244,7 @@
     // finished optimally, so the goal is to fill every star.
     // (The games list page reads the same saved progress to show stars per game.)
     function marks() {
-      document.querySelectorAll('#levels button').forEach(b => {
+      document.querySelectorAll('#levels button:not([data-daily])').forEach(b => {
         const r = (data[KIT.game] || {})[b.dataset.name];
         b.innerHTML = b.dataset.name + (!r ? '' : starred(r)
           ? '<span class="mark star" aria-label="optimal">★</span>'
@@ -492,18 +498,28 @@
 
   function tap(v) {
     if (won) return;
-    if (!ready(v)) { flash(nodes[v]); return; }
-    if (!on[v] && inHand() === 0) { flash(nodes[v]); flash(hand); return; }
+    if (!ready(v)) { sound('bad'); flash(nodes[v]); return; }
+    if (!on[v] && inHand() === 0) { sound('bad'); flash(nodes[v]); flash(hand); return; }
     if (moves === 0) startedAt = performance.now();
     on[v] = !on[v];
     moves++;
     if (outputsDone() && stray() === 0) {
       won = true; solveMs = performance.now() - startedAt;
-      kit.finish(levelName, moves, OPT, clock(solveMs));
+      kit.finish(levelName, moves, OPT, clock(solveMs), daily.opts()); daily.done(moves, OPT, solveMs);
+      sound('win');
       // The board is taller than a phone screen, so bring the result into view.
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    } else sound(on[v] ? (OUT.includes(v) && outputsDone() ? 'flag' : 'place') : 'remove');
     render();
+  }
+
+  // Tell the game music (shared/beats.js) what just happened, so it can follow play.
+  function sound(type) { PebbleBeats.cue(type, on ? reached() : 0); }
+  // How far up the graph the pebbles have got: the highest row holding one.
+  function reached() {
+    let top = 0;
+    G.rows.forEach((row, r) => { if (row.some(v => on[v])) top = r + 1; });
+    return top / G.rows.length;
   }
 
   function clock(ms) {
@@ -544,9 +560,11 @@
     moves = 0;
     won = false;
     render();
+    sound('start');
   }
 
   function setLevel(btn) {
+    daily.chose(btn);
     G = LEVELS[btn.dataset.level];
     n = G.preds.length;
     OUT = G.rows[G.rows.length - 1].slice();
@@ -570,7 +588,12 @@
   $('reset').addEventListener('click', buttonTap(reset));
   board.addEventListener('contextmenu', e => e.preventDefault());
   kit.init();
-  setLevel(levelButtons[0]);
+  // Today's daily puzzle is the last level button (shared/daily-mode.js).
+  const daily = PebbleDaily.attach('dag', 'dag/');
+  LEVELS.daily = daily.puzzle.graph;
+  daily.button.dataset.level = 'daily';
+  PebbleBeats.toggleButton(document.getElementById('beats'));
+  setLevel(daily.wanted() ? daily.button : levelButtons[0]);
   // A link ending in #about opens the "Why this game?" note and scrolls to it.
   function openAbout() {
     if (location.hash !== '#about') return;

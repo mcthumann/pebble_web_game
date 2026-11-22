@@ -342,6 +342,7 @@ window.PebbleBeats = (() => {
         [67, 74, 76].forEach(m => bell(t + 0.7, m, 2.2, FX * 0.4));
       },
       lose() { const t = soon(); [64, 62, 55].forEach((m, k) => bell(t + k * 0.24, m, k === 2 ? 1 : 0.5, FX * 0.8)); },  // E4 D4 G3
+      tick() { const t = soon(); bell(t, 55, 0.55, FX * 0.8, 1000); bell(t + 0.02, 62, 0.5, FX * 0.6, 1000); },  // G3 and D4 together (Clocked)
     };
     // A short filter dip when a puzzle is lost.
     function sag() {
@@ -419,7 +420,7 @@ window.PebbleBeats = (() => {
     const d = e.detail || {};
     if (gameLevel == null) gameLevel = 1;
     if (d.type === 'start') gameLevel = 1;
-    else if (d.type === 'place' && d.progress >= 0.4) gameLevel = Math.max(gameLevel, 2);
+    else if ((d.type === 'place' || d.type === 'tick') && d.progress >= 0.4) gameLevel = Math.max(gameLevel, 2);
     else if (d.type === 'flag' || d.type === 'win') gameLevel = 3;
     else if (d.type === 'lose') gameLevel = 0;
     if (!track || status() !== 'playing') return;
@@ -477,5 +478,12 @@ window.PebbleBeats = (() => {
     draw();
   }
 
-  return { toggleButton, picker, set, status, _createTrack: createTrack, _moods: MOODS, _track: () => track };
+  // For game pages: tell the music what just happened. type is one of start,
+  // place, remove, erase, tick, bad, flag, win, lose; progress (0 to 1) is how
+  // far along the board play has got, which brings the drums and arpeggio in.
+  function cue(type, progress) {
+    document.dispatchEvent(new CustomEvent('pebble:sound', { detail: { type, progress: progress || 0 } }));
+  }
+
+  return { toggleButton, picker, set, status, cue, _createTrack: createTrack, _moods: MOODS, _track: () => track };
 })();

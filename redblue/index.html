@@ -165,18 +165,20 @@
   }
   body.lost #next { display: none; }
 </style>
-<link rel="stylesheet" href="../shared/intro.css?v=3">
+<link rel="stylesheet" href="../shared/intro.css?v=4">
 </head>
 <body>
 <main>
   <header id="head">
     <div><span class="kicker">Pebble Games</span><h1>Red-blue</h1></div>
+    <button class="beats-toggle" id="beats" type="button"></button>
     <a href="../games/">Games</a>
   </header>
   <div id="levels">
     <button type="button" data-level="pyramid" data-s="4" data-opt="7">Easy</button>
     <button type="button" data-level="butterfly" data-s="4" data-opt="11">Medium</button>
     <button type="button" data-level="butterfly" data-s="3" data-opt="14">Hard</button>
+    <button type="button" data-daily>Daily</button>
   </div>
   <ul id="info">
     <li><span class="r">Red</span> is fast memory: only a few pebbles. <span class="b">Blue</span> is slow memory: unlimited. Inputs start blue.</li>
@@ -203,6 +205,10 @@
     <p class="refs"><a href="../games/">All games</a></p>
   </details>
 </main>
+<script src="../shared/dailies.js?v=4"></script>
+<script src="../shared/progress.js?v=4"></script>
+<script src="../shared/daily-mode.js?v=4"></script>
+<script src="../shared/beats.js?v=5"></script>
 <script>
   // Red-blue pebble game (Hong and Kung, 1981): I/O complexity with a two-level
   // memory. S red pebbles model fast memory; blue pebbles model unlimited slow
@@ -238,7 +244,7 @@
     // finished optimally, so the goal is to fill every star.
     // (The games list page reads the same saved progress to show stars per game.)
     function marks() {
-      document.querySelectorAll('#levels button').forEach(b => {
+      document.querySelectorAll('#levels button:not([data-daily])').forEach(b => {
         const r = (data[KIT.game] || {})[b.dataset.name];
         b.innerHTML = b.dataset.name + (!r ? '' : starred(r)
           ? '<span class="mark star" aria-label="optimal">★</span>'
@@ -456,25 +462,36 @@
     el.badTimer = setTimeout(() => el.classList.remove('bad'), 450);
   }
 
-  function act(cost) {
+  function act(cost, kind) {
     if (startedAt == null) startedAt = performance.now();
     io += cost;
     if (stored() === G.outputs.length) {
       won = true; solveMs = performance.now() - startedAt;
-      kit.finish(levelName, io, OPT, clock(solveMs));
+      kit.finish(levelName, io, OPT, clock(solveMs), daily.opts()); daily.done(io, OPT, solveMs);
+      sound('win');
       // The board can sit below a phone's fold, so bring the result into view.
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    } else sound(kind);
     render();
+  }
+
+  // Tell the game music (shared/beats.js) what just happened, so it can follow play.
+  function sound(type) { PebbleBeats.cue(type, red ? reached() : 0); }
+  // How far up the graph the work has got: the highest row holding red or a stored result.
+  function reached() {
+    let top = 0;
+    G.rows.forEach((row, r) => { if (r && row.some(v => red[v] || blue[v])) top = r; });
+    return top / Math.max(1, G.rows.length - 1);
   }
 
   // Tap: compute or load a red pebble, or drop one.
   function tap(v) {
     if (won) return;
-    if (red[v]) { red[v] = false; act(0); return; }
-    if (inHand() === 0 && (computable(v) || blue[v])) { flash(nodes[v]); flash(hand); return; }
-    if (computable(v)) { red[v] = true; act(0); return; }
-    if (blue[v]) { red[v] = true; act(1); return; }
+    if (red[v]) { red[v] = false; act(0, 'remove'); return; }
+    if (inHand() === 0 && (computable(v) || blue[v])) { sound('bad'); flash(nodes[v]); flash(hand); return; }
+    if (computable(v)) { red[v] = true; act(0, 'place'); return; }
+    if (blue[v]) { red[v] = true; act(1, 'place'); return; }
+    sound('bad');
     flash(nodes[v]);
   }
 
@@ -488,9 +505,9 @@
     holdTimer = setTimeout(() => {
       endHold();
       suppressClick = true;
-      if (blue[v]) { flash(nodes[v]); return; }
+      if (blue[v]) { sound('bad'); flash(nodes[v]); return; }
       blue[v] = true;
-      act(1);
+      act(1, G.outputs.includes(v) ? 'flag' : 'erase');
     }, HOLD_MS);
   }
   function release() { clearTimeout(holdTimer); endHold(); }
@@ -537,9 +554,11 @@
     won = false;
     startedAt = null;
     render();
+    sound('start');
   }
 
   function setLevel(btn) {
+    daily.chose(btn);
     G = GRAPHS[btn.dataset.level];
     n = G.preds.length;
     S = Number(btn.dataset.s);
@@ -562,7 +581,12 @@
   $('reset').addEventListener('click', buttonTap(reset));
   board.addEventListener('contextmenu', e => e.preventDefault());
   kit.init();
-  setLevel(levelButtons[0]);
+  // Today's daily puzzle is the last level button (shared/daily-mode.js).
+  const daily = PebbleDaily.attach('redblue', 'redblue/');
+  GRAPHS.daily = daily.puzzle.graph;
+  daily.button.dataset.level = 'daily';
+  PebbleBeats.toggleButton(document.getElementById('beats'));
+  setLevel(daily.wanted() ? daily.button : levelButtons[0]);
   // A link ending in #about opens the "Why this game?" note and scrolls to it.
   function openAbout() {
     if (location.hash !== '#about') return;

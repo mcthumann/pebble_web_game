@@ -195,18 +195,20 @@
   }
   body.lost #next { display: none; }
 </style>
-<link rel="stylesheet" href="../shared/intro.css?v=3">
+<link rel="stylesheet" href="../shared/intro.css?v=4">
 </head>
 <body>
 <main>
   <header id="head">
     <div><span class="kicker">Pebble Games</span><h1>Erasure</h1></div>
+    <button class="beats-toggle" id="beats" type="button"></button>
     <a href="../games/">Games</a>
   </header>
   <div id="levels">
     <button type="button" data-p="3" data-n="6" data-lam="4" data-budget="18" data-opt="16" data-row="4">Easy</button>
     <button type="button" data-p="4" data-n="8" data-lam="5" data-budget="21" data-opt="21" data-row="4">Medium</button>
     <button type="button" data-p="4" data-n="16" data-lam="5" data-budget="47" data-opt="47" data-row="5">Hard</button>
+    <button type="button" data-daily>Daily</button>
   </div>
   <ul id="info">
     <li>A tap only works when the spot before has a pebble. A hold works anywhere.</li>
@@ -240,6 +242,10 @@
     <p class="refs"><a href="../games/">All games</a></p>
   </details>
 </main>
+<script src="../shared/dailies.js?v=4"></script>
+<script src="../shared/progress.js?v=4"></script>
+<script src="../shared/daily-mode.js?v=4"></script>
+<script src="../shared/beats.js?v=5"></script>
 <script>
   // Semi-reversible pebble game. A tap places or removes a pebble on a spot whose
   // predecessor is pebbled (cost 1). Holding a pebble erases it from anywhere
@@ -275,7 +281,7 @@
     // finished optimally, so the goal is to fill every star.
     // (The games list page reads the same saved progress to show stars per game.)
     function marks() {
-      document.querySelectorAll('#levels button').forEach(b => {
+      document.querySelectorAll('#levels button:not([data-daily])').forEach(b => {
         const r = (data[KIT.game] || {})[b.dataset.name];
         b.innerHTML = b.dataset.name + (!r ? '' : starred(r)
           ? '<span class="mark star" aria-label="optimal">★</span>'
@@ -455,26 +461,30 @@
 
   // Pay for the move just made. Solved once the flag is pebbled and it is the only
   // pebble on the line (spot 0 aside); otherwise an empty budget ends the game.
-  function settle(spent) {
+  function settle(spent, kind) {
     const d = $('delta');
     d.textContent = '\u2212' + spent;
     d.classList.remove('show'); void d.offsetWidth; d.classList.add('show');
     if (pebbled[N] && stray() === 0) done = true;
     else if (left() <= 0) done = lost = true;
     if (done) solveMs = performance.now() - startedAt;
-    if (done && !lost) kit.finish(levelName, cost(), OPT, clock(solveMs));
+    if (done && !lost) { kit.finish(levelName, cost(), OPT, clock(solveMs), daily.opts()); daily.done(cost(), OPT, solveMs); }
+    sound(done ? (lost ? 'lose' : 'win') : kind);
   }
+
+  // Tell the game music (shared/beats.js) what just happened, so it can follow play.
+  function sound(type) { PebbleBeats.cue(type, pebbled ? pebbled.lastIndexOf(true) / N : 0); }
 
   // Tap: the reversible move.
   function tap(i) {
     if (done) return;
     const placing = !pebbled[i];
-    if (i === 0 || !pebbled[i - 1]) { flash(nodes[i], 'bad'); return; }
-    if (placing && inHand() === 0) { flash(nodes[i], 'bad'); flash(hand, 'bad'); return; }
+    if (i === 0 || !pebbled[i - 1]) { sound('bad'); flash(nodes[i], 'bad'); return; }
+    if (placing && inHand() === 0) { sound('bad'); flash(nodes[i], 'bad'); flash(hand, 'bad'); return; }
     act();
     pebbled[i] = placing;
     moves++;
-    settle(1);
+    settle(1, placing ? (i === N ? 'flag' : 'place') : 'remove');
     render();
   }
 
@@ -488,12 +498,12 @@
     holdTimer = setTimeout(() => {
       endHold();
       suppressClick = true;
-      if (left() < LAM) { flash(nodes[i], 'bad'); flash($('budgetBox'), 'bad'); return; }
+      if (left() < LAM) { sound('bad'); flash(nodes[i], 'bad'); flash($('budgetBox'), 'bad'); return; }
       act();
       pebbled[i] = false;
       erasures++;
       flash(nodes[i], 'erased');
-      settle(LAM);
+      settle(LAM, 'erase');
       render();
     }, HOLD_MS);
   }
@@ -555,9 +565,11 @@
     done = lost = false;
     $('delta').classList.remove('show');
     render();
+    sound('start');
   }
 
   function setLevel(btn) {
+    daily.chose(btn);
     P = Number(btn.dataset.p);
     N = Number(btn.dataset.n);
     LAM = Number(btn.dataset.lam);
@@ -586,7 +598,10 @@
   $('reset').addEventListener('click', buttonTap(reset));
   board.addEventListener('contextmenu', e => e.preventDefault());
   kit.init();
-  setLevel(levelButtons[0]);
+  // Today's daily puzzle is the last level button (shared/daily-mode.js).
+  const daily = PebbleDaily.attach('erase', 'erase/');
+  PebbleBeats.toggleButton(document.getElementById('beats'));
+  setLevel(daily.wanted() ? daily.button : levelButtons[0]);
   // A link ending in #about opens the "Why this game?" note and scrolls to it.
   function openAbout() {
     if (location.hash !== '#about') return;
