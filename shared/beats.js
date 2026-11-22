@@ -1,12 +1,14 @@
-// Focus sound: a relaxed lo-fi chiptune soundtrack with a binaural beat under
-// it, synthesised in the browser (there are no audio files).
+// Focus sound: a slow, low, lo-fi soundtrack with a binaural beat under it,
+// synthesised in the browser (there are no audio files).
 //
-// The music is a four-chord loop: soft electric-piano chords, a round bass,
-// swung lo-fi drums that make the chords breathe, a soft chiptune arpeggio,
-// vinyl crackle, and a short lead melody. The melody is made up fresh
-// every 32 bars and repeated within them, so it sticks. Under everything, two
-// quiet sine tones a few hertz apart, one per ear, give the binaural beat
-// (10 Hz for Focus, 6 Hz for Calm) through headphones.
+// The music is a four-chord loop kept low and dark: soft electric-piano chords,
+// a round bass, swung lo-fi drums that make the chords breathe, a soft plucked
+// arpeggio, vinyl crackle, and a short, mellow lead melody (D4 to E5, no
+// higher). The whole mix runs through a low-pass at 3.2 kHz, so nothing is
+// bright. The melody is made up fresh every 32 bars and repeated within them,
+// so it sticks. Under everything, two quiet sine tones a few hertz apart, one
+// per ear, give the binaural beat (10 Hz for Focus, 6 Hz for Calm) through
+// headphones.
 //
 // It follows play. Game pages send 'pebble:sound' events (see priced.js): a
 // new puzzle starts sparse, drums come in with the first moves, the arpeggio
@@ -20,17 +22,19 @@ window.PebbleBeats = (() => {
   const KEY = 'pebble-beats';
   const PENTA = [0, 2, 4, 7, 9];                                   // C major pentatonic
   const hz = m => 440 * Math.pow(2, (m - 69) / 12);                // MIDI note to hertz
-  const deg = d => 72 + 12 * Math.floor(d / 5) + PENTA[((d % 5) + 5) % 5];  // degree 0 = C5
+  const deg = d => 60 + 12 * Math.floor(d / 5) + PENTA[((d % 5) + 5) % 5];  // degree 0 = C4
+  const LO = 1, HI = 7;                                            // melody range: D4 to E5
+  const WARM = 3200;                                               // the mix's low-pass, in hertz
 
   // Chords are [bass, voicing...] in MIDI. keys: [step, length in steps, velocity].
   const MOODS = {
     focus: {
-      label: 'Focus', beat: 10, carrier: 220, bpm: 88, swing: 0.57, drums: 1, arp: 1, space: 0.22,
+      label: 'Focus', beat: 10, carrier: 220, bpm: 80, swing: 0.57, drums: 1, arp: 1, space: 0.22,
       chords: [[41, 53, 57, 60, 64], [40, 52, 55, 59, 62], [38, 50, 53, 57, 60], [36, 48, 52, 55, 59]], // Fmaj7 Em7 Dm7 Cmaj7
       keys: [[0, 5, 1], [6, 3, 0.7], [10, 6, 0.85]],
     },
     calm: {
-      label: 'Calm', beat: 6, carrier: 196, bpm: 70, swing: 0.6, drums: 0.6, arp: 0.7, space: 0.35,
+      label: 'Calm', beat: 6, carrier: 196, bpm: 64, swing: 0.6, drums: 0.6, arp: 0.7, space: 0.35,
       chords: [[45, 55, 57, 60, 64], [41, 53, 57, 60, 64], [36, 48, 52, 55, 59], [43, 55, 59, 62, 64]], // Am7 Fmaj7 Cmaj7 G6
       keys: [[0, 8, 1], [8, 8, 0.8]],
     },
@@ -96,7 +100,7 @@ window.PebbleBeats = (() => {
     comp.threshold.value = -18; comp.knee.value = 10; comp.ratio.value = 4; comp.attack.value = 0.008; comp.release.value = 0.25;
     comp.connect(master);
     const warm = c.createBiquadFilter();
-    warm.type = 'lowpass'; warm.frequency.value = 7000;
+    warm.type = 'lowpass'; warm.frequency.value = WARM;
     warm.connect(comp);
     const duck = c.createGain(); duck.connect(warm);
     const drums = c.createGain(); drums.gain.value = cfg.drums; drums.connect(warm);
@@ -136,7 +140,7 @@ window.PebbleBeats = (() => {
     // Vinyl crackle, looping.
     const crackle = c.createBufferSource(), cf = c.createBiquadFilter(), cg = c.createGain();
     crackle.buffer = buf.crackle; crackle.loop = true;
-    cf.type = 'lowpass'; cf.frequency.value = 3500; cg.gain.value = 0.15;
+    cf.type = 'lowpass'; cf.frequency.value = 2000; cg.gain.value = 0.15;
     crackle.connect(cf); cf.connect(cg); cg.connect(L.crackle); crackle.start(t0); live.add(crackle);
 
     // ---------- Instruments ----------
@@ -164,22 +168,24 @@ window.PebbleBeats = (() => {
       start(o, t, t + len + 0.4); start(o2, t, t + len + 0.4);
     }
 
+    // A soft, round pluck (triangle through a low filter), for the arpeggio.
     function blip(t, midi, len, gain, bus) {
       const o = c.createOscillator(), lp = c.createBiquadFilter(), g = c.createGain();
-      o.type = 'square'; o.frequency.value = hz(midi);
-      lp.type = 'lowpass'; lp.frequency.value = 2200;
-      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t + 0.005); g.gain.setTargetAtTime(0, t + 0.01, len / 3);
+      o.type = 'triangle'; o.frequency.value = hz(midi);
+      lp.type = 'lowpass'; lp.frequency.value = 900;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t + 0.008); g.gain.setTargetAtTime(0, t + 0.012, len / 3);
       o.connect(lp); lp.connect(g); g.connect(bus); start(o, t, t + len + 0.3);
     }
 
+    // A mellow, flute-like lead: a sine with a little triangle, filtered low.
+    // When the flag is reached it opens up slightly, but it never gets bright.
     function lead(t, midi, len, bright) {
       const lp = c.createBiquadFilter(), g = c.createGain();
-      lp.type = 'lowpass'; lp.frequency.value = bright ? 3400 : 1900; lp.Q.value = 0.8;
-      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.13, t + 0.015);
-      g.gain.setTargetAtTime(0.09, t + 0.015, 0.15); g.gain.setTargetAtTime(0, t + len, 0.07);
+      lp.type = 'lowpass'; lp.frequency.value = bright ? 1500 : 1100; lp.Q.value = 0.5;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.15, t + 0.03);
+      g.gain.setTargetAtTime(0.11, t + 0.03, 0.2); g.gain.setTargetAtTime(0, t + len, 0.1);
       lp.connect(g); g.connect(L.mel);
-      const parts = [['triangle', 0, 1], ['square', 4, 0.2]];
-      if (bright) parts.push(['sine', 1200, 0.35]);
+      const parts = [['sine', 0, 1], ['triangle', 3, bright ? 0.5 : 0.35]];
       parts.forEach(([type, cents, amp]) => {
         const o = c.createOscillator(), a = c.createGain();
         o.type = type; o.frequency.value = hz(midi); o.detune.value = cents; a.gain.value = amp;
@@ -198,30 +204,30 @@ window.PebbleBeats = (() => {
 
     function snare(t, v) {
       const n = c.createBufferSource(), bp = c.createBiquadFilter(), g = c.createGain();
-      n.buffer = buf.noise; bp.type = 'bandpass'; bp.frequency.value = 1800; bp.Q.value = 0.8;
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.45 * v, t + 0.003); g.gain.exponentialRampToValueAtTime(0.001, t + 0.19);
+      n.buffer = buf.noise; bp.type = 'bandpass'; bp.frequency.value = 1100; bp.Q.value = 0.7;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.4 * v, t + 0.004); g.gain.exponentialRampToValueAtTime(0.001, t + 0.19);
       n.connect(bp); bp.connect(g); g.connect(L.snare); start(n, t, t + 0.22, rand() * 0.7);
       const o = c.createOscillator(), og = c.createGain();
-      o.frequency.value = 185;
+      o.frequency.value = 165;
       og.gain.setValueAtTime(0.0001, t); og.gain.exponentialRampToValueAtTime(0.22 * v, t + 0.003); og.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
       o.connect(og); og.connect(L.snare); start(o, t, t + 0.12);
     }
 
     function hat(t, v, open) {
       const n = c.createBufferSource(), hp = c.createBiquadFilter(), g = c.createGain(), len = open ? 0.22 : 0.04;
-      n.buffer = buf.noise; hp.type = 'highpass'; hp.frequency.value = 7200;
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.1 * v, t + 0.002); g.gain.exponentialRampToValueAtTime(0.001, t + len);
+      n.buffer = buf.noise; hp.type = 'highpass'; hp.frequency.value = 4000;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.07 * v, t + 0.002); g.gain.exponentialRampToValueAtTime(0.001, t + len);
       n.connect(hp); hp.connect(g); g.connect(L.hat); start(n, t, t + len + 0.02, rand() * 0.7);
     }
 
     // ---------- Melody: a two-bar motif, repeated, varied and answered ----------
     let motif = null, variant = null;
     function makeMotif() {
-      let d = 2 + Math.floor(rand() * 4);
+      let d = 2 + Math.floor(rand() * 3);
       const bars = [0, 1].map(() => {
         const r = RHYTHMS[Math.floor(rand() * RHYTHMS.length)];
         return r.map((pos, k) => {
-          d = Math.max(0, Math.min(9, d + [-2, -1, -1, 0, 1, 1, 2][Math.floor(rand() * 7)]));
+          d = Math.max(LO, Math.min(HI - 1, d + [-2, -1, -1, 0, 1, 1, 2][Math.floor(rand() * 7)]));
           return { pos, d, len: Math.min(4, (k + 1 < r.length ? r[k + 1] : 16) - pos) };
         });
       });
@@ -230,13 +236,17 @@ window.PebbleBeats = (() => {
       return bars;
     }
     function vary(bar) {
-      return bar.map((n, k) => k < bar.length - 2 ? n : { ...n, d: Math.max(0, Math.min(9, n.d + (rand() < 0.5 ? -1 : 1))) });
+      return bar.map((n, k) => k < bar.length - 2 ? n : { ...n, d: Math.max(LO, Math.min(HI - 1, n.d + (rand() < 0.5 ? -1 : 1))) });
     }
-    // Strong beats land on a note of the chord underneath.
+    // Strong beats land on a note of the chord underneath; nothing leaves the range.
     function fit(d, chord, strong) {
+      d = Math.max(LO, Math.min(HI, d));
       if (!strong) return d;
       const pcs = chord.slice(1).map(m => m % 12);
-      for (const off of [0, -1, 1, -2, 2]) if (pcs.includes(deg(d + off) % 12)) return d + off;
+      for (const off of [0, -1, 1, -2, 2]) {
+        const e = d + off;
+        if (e >= LO && e <= HI && pcs.includes(deg(e) % 12)) return e;
+      }
       return d;
     }
     // 32-bar cycle: melody, rest, melody, rest (8 bars each); a new motif each cycle.
@@ -266,7 +276,7 @@ window.PebbleBeats = (() => {
       if (pos === 8) bassNote(t, chord[0] + (bar % 2 ? 7 : 0), 5 * step);
       if (pos === 14 && bar % 2) bassNote(t, chord[0] + 12, 1.6 * step);
 
-      if (on('arp') && pos % 2 === 0) blip(t, chord[1 + ARP[pos / 2]] + 12, 1.8 * step, 0.07 * cfg.arp, L.arp);
+      if (on('arp') && pos % 2 === 0) blip(t, chord[1 + ARP[pos / 2]], 1.8 * step, 0.08 * cfg.arp, L.arp);
 
       const notes = phrase(bar);
       if (notes) for (const n of notes) if (n.pos === pos) {
@@ -292,18 +302,19 @@ window.PebbleBeats = (() => {
 
     // ---------- Sound effects: one soft sound per kind of move ----------
     // Every move of the same kind sounds the same, wherever it happens: placing
-    // and removing share one note (G5), removing is just softer. No echo or room.
-    // The notes are G, A, D and E, which sit well over every chord in both moods.
-    const FX = 0.085;                                // base level of the effects
+    // and removing share one note (G4), removing is just softer. No echo or room.
+    // The notes are G, A, D and E, which sit well over every chord in both moods,
+    // and all sit low: nothing above E5.
+    const FX = 0.1;                                  // base level of the effects
     const soon = () => c.currentTime + 0.01;
-    // A soft mallet: a sine with faint upper partials, gentle attack, warm decay.
+    // A soft wooden mallet: a sine with a warm second partial, gentle attack.
     function bell(t, midi, len, gain, cutoff) {
       const g = c.createGain(), lp = c.createBiquadFilter();
-      lp.type = 'lowpass'; lp.frequency.value = cutoff || 2400;
-      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t + 0.008);
-      g.gain.setTargetAtTime(0, t + 0.008, len / 4);
+      lp.type = 'lowpass'; lp.frequency.value = cutoff || 1500;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t + 0.01);
+      g.gain.setTargetAtTime(0, t + 0.01, len / 4);
       lp.connect(g); g.connect(fx);
-      [[1, 1], [2, 0.12], [4, 0.05]].forEach(([mult, amp]) => {
+      [[1, 1], [2, 0.25], [3, 0.05]].forEach(([mult, amp]) => {
         const o = c.createOscillator(), a = c.createGain();
         o.frequency.value = hz(midi) * mult; a.gain.value = amp;
         o.connect(a); a.connect(lp); start(o, t, t + len + 0.1);
@@ -320,24 +331,24 @@ window.PebbleBeats = (() => {
     // The music steps back slightly under each effect.
     function dip(t) { duck.gain.setTargetAtTime(0.85, t, 0.02); duck.gain.setTargetAtTime(1, t + 0.12, 0.2); }
     const sfx = {
-      place() { bell(soon(), 79, 0.45, FX); },                                   // G5
-      remove() { bell(soon(), 79, 0.3, FX * 0.7, 1300); },                       // the same G5, softer and darker
-      erase() { const t = soon(); breath(t, 0.5, FX * 1.4); bell(t + 0.03, 67, 0.6, FX * 0.75); },  // G4 under a breath
-      bad() { bell(soon(), 57, 0.18, FX * 0.8); },                               // A3, short and muted
-      flag() { const t = soon(); bell(t, 79, 0.6, FX * 0.75); bell(t + 0.12, 86, 0.9, FX * 0.75); },             // G5 then D6
+      place() { bell(soon(), 67, 0.45, FX); },                                   // G4
+      remove() { bell(soon(), 67, 0.3, FX * 0.7, 900); },                        // the same G4, softer and darker
+      erase() { const t = soon(); breath(t, 0.5, FX * 1.4); bell(t + 0.03, 62, 0.6, FX * 0.85); },  // D4 under a breath
+      bad() { bell(soon(), 57, 0.18, FX * 0.8, 700); },                          // A3, short and muted
+      flag() { const t = soon(); bell(t, 67, 0.6, FX * 0.75); bell(t + 0.14, 74, 0.9, FX * 0.75); },             // G4 then D5
       win() {
         const t = soon();
-        [76, 79, 81, 86, 88].forEach((m, k) => bell(t + k * 0.1, m, 1.2, FX * 0.7));            // E5 G5 A5 D6 E6
-        [79, 86, 88].forEach(m => bell(t + 0.6, m, 2.2, FX * 0.4));
+        [64, 67, 69, 74, 76].forEach((m, k) => bell(t + k * 0.12, m, 1.2, FX * 0.7));           // E4 G4 A4 D5 E5
+        [67, 74, 76].forEach(m => bell(t + 0.7, m, 2.2, FX * 0.4));
       },
-      lose() { const t = soon(); [76, 74, 67].forEach((m, k) => bell(t + k * 0.22, m, k === 2 ? 1 : 0.5, FX * 0.8)); },  // E5 D5 G4
+      lose() { const t = soon(); [64, 62, 55].forEach((m, k) => bell(t + k * 0.24, m, k === 2 ? 1 : 0.5, FX * 0.8)); },  // E4 D4 G3
     };
     // A short filter dip when a puzzle is lost.
     function sag() {
       const t = c.currentTime;
       warm.frequency.cancelScheduledValues(t);
-      warm.frequency.setTargetAtTime(700, t, 0.15);
-      warm.frequency.setTargetAtTime(7000, t + 1.6, 0.5);
+      warm.frequency.setTargetAtTime(600, t, 0.15);
+      warm.frequency.setTargetAtTime(WARM, t + 1.6, 0.5);
     }
 
     function run() {
