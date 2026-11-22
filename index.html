@@ -218,12 +218,13 @@
       </div>
     </div>
     <div class="card">
-      <b>Focus sound</b>
-      <span id="moodNote">Binaural beats under soft chords. Use headphones.</span>
+      <b>Game music</b>
+      <span id="moodNote">Lo-fi game music that follows your moves, with a binaural beat underneath. Headphones help.</span>
       <div class="moods" id="moods"></div>
     </div>
   </section>
 </main>
+<script src="shared/beats.js"></script>
 <script>
   // Easy, Medium, Hard give 2, 3, 4 pebbles. With P pebbles the furthest
   // reachable spot is 2^P - 1, so that is where the flag goes: 3, 7, 15.
@@ -421,14 +422,21 @@
   function tap(i) {
     if (won) return;
     const placing = !pebbled[i];
-    if (i === 0 || !pebbled[i - 1]) { flash(nodes[i]); return; }
-    if (placing && inHand() === 0) { flash(nodes[i]); flash(hand); return; }
+    if (i === 0 || !pebbled[i - 1]) { sound('bad', i); flash(nodes[i]); return; }
+    if (placing && inHand() === 0) { sound('bad', i); flash(nodes[i]); flash(hand); return; }
     pebbled[i] = placing;
+    sound(placing ? 'place' : 'remove', i);
     // The clock runs from the first legal move to the pebble landing on the flag.
     if (moves === 0) startedAt = performance.now();
     moves++;
-    if (placing && i === N) { won = true; solveMs = performance.now() - startedAt; kit.finish(levelName, moves, OPT, clock(solveMs)); }
+    if (placing && i === N) { won = true; solveMs = performance.now() - startedAt; kit.finish(levelName, moves, OPT, clock(solveMs)); sound('win', i); }
     render();
+  }
+
+  // Tell the focus music (shared/beats.js) what just happened, so it can follow play.
+  function sound(type, spot) {
+    const furthest = pebbled.lastIndexOf(true);
+    document.dispatchEvent(new CustomEvent('pebble:sound', { detail: { type, spot, n: N, progress: Math.max(furthest, spot) / N } }));
   }
 
   function clock(ms) {
@@ -457,6 +465,7 @@
     moves = 0;
     won = false;
     render();
+    sound('start', 0);
   }
 
   function setLevel(btn) {
@@ -488,7 +497,6 @@
 </script>
 <script src="shared/puzzles.js"></script>
 <script src="shared/progress.js"></script>
-<script src="shared/beats.js"></script>
 <script>
   // More to play: today's daily puzzle, challenge stars and the focus sound.
   (() => {

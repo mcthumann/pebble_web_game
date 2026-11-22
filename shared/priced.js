@@ -76,7 +76,7 @@ window.PricedGame = (() => {
   function create(onEnd) {
     const board = $('board'), hand = $('hand');
     let P, N, C, E, BUDGET, DX, R, nodes = [];
-    let pebbled, moves, erasures, tapCost, eraseCost, done, lost, startedAt, solveMs;
+    let pebbled, moves, erasures, tapCost, eraseCost, done, lost, startedAt, solveMs, reach = 0;
     let holdTimer = null, holdNode = null, suppressClick = false;
 
     // Spots 0..N snake along one line, five to a row. Spot 0 is always pebbled.
@@ -122,6 +122,11 @@ window.PricedGame = (() => {
         '<text x="' + cx + '" y="' + (cy + 4.5) + '">' + v + '</text></g>';
     }
 
+    // Tell the music what just happened (shared/beats.js listens; nothing else needs it).
+    function emit(type, spot) {
+      document.dispatchEvent(new CustomEvent('pebble:sound', { detail: { type, spot, n: N, progress: reach / N } }));
+    }
+
     const inHand = () => P - pebbled.slice(1).filter(Boolean).length;
     const cost = () => tapCost + eraseCost;
     const left = () => BUDGET - cost();
@@ -142,7 +147,7 @@ window.PricedGame = (() => {
       clearTimeout(el[cls + 'Timer']);
       el[cls + 'Timer'] = setTimeout(() => el.classList.remove(cls), 450);
     }
-    function tooDear(i) { flash(nodes[i], 'bad'); flash($('budget'), 'bad'); }
+    function tooDear(i) { emit('bad', i); flash(nodes[i], 'bad'); flash($('budget'), 'bad'); }
     function act() { if (moves + erasures === 0) startedAt = performance.now(); }
 
     function settle(spent) {
@@ -153,6 +158,7 @@ window.PricedGame = (() => {
       else if (stuck()) done = lost = true;
       if (!done) return;
       solveMs = performance.now() - startedAt;
+      emit(lost ? 'lose' : 'win', N);
       onEnd({ won: !lost, cost: cost(), opt: BUDGET, tapCost, eraseCost, ms: solveMs,
               time: clock(solveMs), flagged: pebbled[N], stray: stray() });
     }
@@ -161,13 +167,16 @@ window.PricedGame = (() => {
     function tap(i) {
       if (done) return;
       const placing = !pebbled[i];
-      if (i === 0 || !pebbled[i - 1]) { flash(nodes[i], 'bad'); return; }
-      if (placing && inHand() === 0) { flash(nodes[i], 'bad'); flash(hand, 'bad'); return; }
+      if (i === 0 || !pebbled[i - 1]) { emit('bad', i); flash(nodes[i], 'bad'); return; }
+      if (placing && inHand() === 0) { emit('bad', i); flash(nodes[i], 'bad'); flash(hand, 'bad'); return; }
       if (C[i] > left()) { tooDear(i); return; }
       act();
       pebbled[i] = placing;
       moves++;
       tapCost += C[i];
+      if (placing) reach = Math.max(reach, i);
+      emit(placing ? 'place' : 'remove', i);
+      if (placing && i === N && stray() > 0) emit('flag', i);
       settle(C[i]);
       render();
     }
@@ -188,6 +197,7 @@ window.PricedGame = (() => {
         erasures++;
         eraseCost += E[i];
         flash(nodes[i], 'erased');
+        emit('erase', i);
         settle(E[i]);
         render();
       }, HOLD_MS);
@@ -226,8 +236,10 @@ window.PricedGame = (() => {
       pebbled[0] = true;
       moves = erasures = tapCost = eraseCost = 0;
       done = lost = false;
+      reach = 0;
       $('delta').classList.remove('show');
       render();
+      emit('start', 0);
     }
 
     function load(q) {
