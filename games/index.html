@@ -100,6 +100,18 @@
     <p class="refs">Blocki, Holman &amp; Lee, TCC 2022, <a href="https://arxiv.org/abs/2110.04191">arXiv:2110.04191</a></p>
     <a class="play" href="../clocked/">Play Clocked &rarr;</a>
   </section>
+  <section>
+    <h2><a href="../today/">Today's chips</a><span class="stars" data-game="today"></span></h2>
+    <p>Real AI inference steps on today's hardware: fast memory is small, and moving data costs far more than math. Keep values on the chip, move them, or compute them again.</p>
+    <p class="refs">New game · Hong &amp; Kung, STOC 1981 · Dao et al., FlashAttention, NeurIPS 2022</p>
+    <a class="play" href="../today/">Play Today's chips &rarr;</a>
+  </section>
+  <section>
+    <h2><a href="../future/">Future chips</a><span class="stars" data-game="future"></span></h2>
+    <p>An adder, a matrix multiply and Strassen on a reversible chip at the physical limit: each step costs its gates × depth, and erasing costs per bit.</p>
+    <p class="refs">New game · Landauer 1961 · Bennett 1989 · Strassen 1969</p>
+    <a class="play" href="../future/">Play Future chips &rarr;</a>
+  </section>
 </main>
 <script>
   // Stars come from the progress the games save in this browser. Each level
@@ -109,7 +121,7 @@
     reversible: ['Easy', 'Medium', 'Hard'], clean: ['Easy', 'Medium', 'Hard'], erase: ['Easy', 'Medium', 'Hard'],
     prices: ['Easy', 'Medium', 'Hard'], pits: ['Easy', 'Medium', 'Hard'],
     spooky: ['Easy', 'Medium', 'Hard'], dag: ['Pyramid', 'Tree', 'Puzzle'],
-    redblue: ['Easy', 'Medium', 'Hard'], clocked: ['Easy', 'Medium', 'Hard'],
+    redblue: ['Easy', 'Medium', 'Hard'], clocked: ['Easy', 'Medium', 'Hard'], today: ['Easy', 'Medium', 'Hard'], future: ['Easy', 'Medium', 'Hard'],
   };
   let data = {};
   try { data = JSON.parse(localStorage.getItem('pebble-games-v1')) || {}; } catch (e) {}

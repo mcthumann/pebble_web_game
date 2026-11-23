@@ -174,6 +174,40 @@
         tick({ 3: { queued: false, on: true } }, 'Reach the flag, then clear the rest, in as few ticks as you can.', { add: { ticks: 1 } }),
       ],
     },
+    today: {
+      title: "Today's chips",
+      board: () => graph([
+        { x: 170, y: 168, input: true, slots: 1, blue: true }, { x: 105, y: 100, slots: 2, chips: [3, 4, 'io'] },
+        { x: 235, y: 36, slots: 1, chips: [1, 2, 'io'], goal: true },
+      ], [[0, 1], [1, 2], [0, 2]], 205),
+      vars: { budget: 12 },
+      hud: s => 'Fast memory ' + dots(4 - s.nodes.reduce((k, n) => k + (n.fast ? n.slots : 0), 0), 4) + '  ·  Budget ' + s.vars.budget,
+      steps: [
+        say('Red is fast memory: small. Blue is slow memory: big. The input starts in slow memory.'),
+        tap(0, { 0: { fast: true, full: true } }, 'Tap the input to read it into fast memory. Moving data costs the blue price.', { add: { budget: -2 } }),
+        tap(1, { 1: { fast: true, full: true } }, 'Tap a box to compute it once its inputs are in fast memory.', { add: { budget: -3 } }),
+        tap(2, { 2: { fast: true, full: true } }, 'Compute the output…', { add: { budget: -1 } }),
+        tap(1, { 1: { fast: false, full: false } }, 'Dropping a value is free.'),
+        hold(2, { 2: { blue: true } }, '…and hold to write it to slow memory. Solved.', { add: { budget: -2 }, win: true }),
+      ],
+    },
+    future: {
+      title: 'Future chips',
+      board: () => graph([
+        { x: 95, y: 112, slots: 1, chips: [1, 3] }, { x: 245, y: 112, slots: 2, chips: [9, 6] },
+        { x: 170, y: 40, slots: 2, chips: [1, 6], goal: true },
+      ], [[0, 2], [1, 2]], 175),
+      vars: { budget: 20 },
+      hud: s => 'Free ' + dots(5 - s.nodes.reduce((k, n) => k + (n.full ? n.slots : 0), 0), 5) + '  ·  Budget ' + s.vars.budget,
+      steps: [
+        say('Each box is a value; its slots are its bits. The inputs are always there.'),
+        tap(0, { 0: { full: true } }, 'Tap to compute a box. The outlined price is its circuit: gates × depth.', { add: { budget: -1 } }),
+        tap(1, { 1: { full: true } }, 'A deep circuit, like a multiply, costs more.', { add: { budget: -9 } }),
+        tap(2, { 2: { full: true } }, 'Compute the output…', { add: { budget: -1 } }),
+        tap(0, { 0: { full: false } }, '…then clear the rest. Shallow circuit: tap again to uncompute, same price.', { add: { budget: -1 } }),
+        hold(1, { 1: { full: false } }, 'Deep circuit: erasing its bits is cheaper. Hold to erase. Solved.', { add: { budget: -6 }, flash: 'erased', win: true }),
+      ],
+    },
   };
 
   // ---------- Drawing ----------
@@ -188,7 +222,7 @@
 
   function drawNode(n, i, fx) {
     const cls = [];
-    for (const k of ['fixed', 'input', 'goal', 'ghost', 'queued', 'blue', 'red']) if (n[k]) cls.push(k);
+    for (const k of ['fixed', 'input', 'goal', 'ghost', 'queued', 'blue', 'red', 'fast']) if (n[k]) cls.push(k);
     if (fx.bad === i) cls.push('bad');
     if (fx.erased === i) cls.push('erased');
     if (fx.pop && fx.pop.has(i)) cls.push('pop');
@@ -202,7 +236,7 @@
     if (n.on || n.red) s += '<circle class="dot" cx="' + x + '" cy="' + y + '" r="' + (R - 9) + '"/>';
     if (n.queued && !n.on) s += '<circle class="qdot" cx="' + x + '" cy="' + y + '" r="' + (R - 9) + '"/>';
     if (n.ghost) s += GHOST(x, y);
-    if (n.chips) s += chip('', x - 13, y + R + 15, n.chips[0]) + chip('e', x + 13, y + R + 15, n.chips[1]);
+    if (n.chips) s += chip('', x - 13, y + R + 15, n.chips[0]) + chip(n.chips[2] || 'e', x + 13, y + R + 15, n.chips[1]);
     if (fx.hold === i) s += '<circle class="holdring" cx="' + x + '" cy="' + y + '" r="' + (R + 1) + '" pathLength="100" transform="rotate(-90 ' + x + ' ' + y + ')"/>';
     return s + '</g>';
   }

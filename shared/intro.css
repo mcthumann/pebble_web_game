@@ -89,6 +89,7 @@ body.won .rules-drop, body.done .rules-drop { display: none; }
 .pi-svg .red .dot { fill: #D7263D; }
 .pi-svg .slot { fill: #fff; stroke: #B8BEC6; stroke-width: 2; }
 .pi-svg .slot.full { fill: #1A1C20; stroke: #1A1C20; }
+.pi-svg .fast .slot.full { fill: #D7263D; stroke: #D7263D; }
 .pi-svg .chip rect { fill: #fff; stroke: #1A1C20; stroke-width: 1.5; }
 .pi-svg .chip text { font-size: 13px; font-weight: 700; fill: #1F2329; text-anchor: middle; }
 .pi-svg .chip.e rect { fill: #D55E00; stroke: #D55E00; }
@@ -122,3 +123,5 @@ body.won #head .beats-toggle:not(.on), body.done #head .beats-toggle:not(.on) { 
 #levels > button { white-space: nowrap; }
 #levels:has(> [data-daily]) > button { font-size: 15px; padding-left: 0; padding-right: 0; }
 #levels:has(> [data-daily]) .mark { margin-left: 3px; }
+.pi-svg .chip.io rect { fill: #2367C9; stroke: #2367C9; }
+.pi-svg .chip.io text { fill: #fff; }

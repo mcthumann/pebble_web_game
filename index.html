@@ -172,7 +172,7 @@
   #more .moods button.sel { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
   body.won #more { display: none; }
 </style>
-<link rel="stylesheet" href="shared/intro.css?v=4">
+<link rel="stylesheet" href="shared/intro.css?v=5">
 </head>
 <body>
 <main>
@@ -230,7 +230,7 @@
     </div>
     <div class="card">
       <b>Game music</b>
-      <span id="moodNote">Lo-fi game music that follows your moves, with a binaural beat underneath. Headphones help.</span>
+      <span id="moodNote">Lo-fi game music that follows your moves.</span>
       <div class="moods" id="moods"></div>
     </div>
   </section>
@@ -239,7 +239,7 @@
 <script src="shared/dailies.js?v=4"></script>
 <script src="shared/progress.js?v=4"></script>
 <script src="shared/daily-mode.js?v=5"></script>
-<script src="shared/beats.js?v=6"></script>
+<script src="shared/beats.js?v=7"></script>
 <script>
   // Easy, Medium, Hard give 2, 3, 4 pebbles. With P pebbles the furthest
   // reachable spot is 2^P - 1, so that is where the flag goes: 3, 7, 15.
@@ -554,6 +554,6 @@
     PebbleBeats.picker(document.getElementById('moods'), document.getElementById('moodNote'));
   })();
 </script>
-<script src="shared/intro.js?v=4" data-game="reversible"></script>
+<script src="shared/intro.js?v=6" data-game="reversible"></script>
 </body>
 </html>

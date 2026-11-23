@@ -178,7 +178,7 @@
   }
   body.lost #next { display: none; }
 </style>
-<link rel="stylesheet" href="../shared/intro.css?v=4">
+<link rel="stylesheet" href="../shared/intro.css?v=5">
 </head>
 <body>
 <main>
@@ -208,7 +208,7 @@
     <li id="g1" data-n="1">Reach the flag</li>
     <li id="g2" data-n="2" aria-live="polite"></li>
   </ol>
-  <div id="result"><h1 id="verdict"></h1><p id="time"></p><p id="summary"></p><p id="best"></p><div class="actions"><button id="share" type="button">Share</button><a id="next" href="../games/">All games &rarr;</a></div></div>
+  <div id="result"><h1 id="verdict"></h1><p id="time"></p><p id="summary"></p><p id="best"></p><div class="actions"><button id="share" type="button">Share</button><a id="next" href="../today/">Next: Today's chips &rarr;</a></div></div>
   <svg id="board" role="group" aria-label="Pebble line"></svg>
   <button id="tickBtn" type="button" disabled></button>
   <div id="bar">
@@ -225,7 +225,7 @@
 <script src="../shared/dailies.js?v=4"></script>
 <script src="../shared/progress.js?v=4"></script>
 <script src="../shared/daily-mode.js?v=5"></script>
-<script src="../shared/beats.js?v=6"></script>
+<script src="../shared/beats.js?v=7"></script>
 <script>
   // Clocked (parallel) reversible pebbling on a line. Each tick toggles any set
   // of spots at once; a spot may change only if the spot before it is pebbled
@@ -562,6 +562,6 @@
   window.addEventListener('hashchange', openAbout);
   openAbout();
 </script>
-<script src="../shared/intro.js?v=4" data-game="clocked"></script>
+<script src="../shared/intro.js?v=6" data-game="clocked"></script>
 </body>
 </html>

@@ -454,7 +454,7 @@ window.PebbleBeats = (() => {
       btn.classList.toggle('on', st !== 'off');
       btn.classList.toggle('waiting', st === 'waiting');
       btn.setAttribute('aria-pressed', st !== 'off');
-      btn.title = st === 'off' ? 'Game music: off (lo-fi with a binaural beat; headphones help)'
+      btn.title = st === 'off' ? 'Game music: off (lo-fi music that follows your moves)'
         : st === 'waiting' ? 'Game music: tap anywhere to start' : 'Game music: ' + MOODS[mood].label + ', on';
     };
     btn.setAttribute('aria-label', 'Game music');
@@ -472,9 +472,9 @@ window.PebbleBeats = (() => {
       box.querySelectorAll('button').forEach(b => b.classList.toggle('sel', b.dataset.mood === mood));
       if (!note) return;
       const st = status(), m = MOODS[mood];
-      note.textContent = st === 'off' ? 'Lo-fi game music that follows your moves, with a binaural beat underneath. Headphones help.'
+      note.textContent = st === 'off' ? 'Lo-fi game music that follows your moves.'
         : st === 'waiting' ? 'Tap anywhere to start the music.'
-        : m.label + ': ' + m.bpm + ' BPM, ' + m.beat + ' Hz binaural beat. Playing.';
+        : m.label + ': ' + m.bpm + ' BPM. Playing.';
     };
     listeners.add(draw);
     draw();

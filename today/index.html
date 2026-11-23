@@ -1,0 +1,709 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Pebble Game: Today's chips</title>
+<meta name="description" content="Run real AI inference steps on today's chips: keep values in fast memory, move them, or recompute them, and beat an unfused chip.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Pebble Games">
+<meta property="og:title" content="Pebble Game: Today's chips">
+<meta property="og:description" content="Run real AI inference steps on today's chips: keep values in fast memory, move them, or recompute them, and beat an unfused chip.">
+<meta property="og:url" content="https://mcthumann.github.io/pebble_web_game/today/">
+<meta property="og:image" content="https://mcthumann.github.io/pebble_web_game/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pebble Games: puzzles about memory, time and energy">
+<meta name="twitter:card" content="summary_large_image">
+<style>  :root {
+    --ink: #1F2329; --muted: #7A808A; --faint: #D5D9DF;
+    --pebble: #1A1C20; --red: #E31A1C; --green: #009E73; --erase: #D55E00; --low: #F2B705; --fastc: #D7263D; --slowc: #2367C9; --slowbg: #DDEAFB;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overscroll-behavior: none; }
+  body {
+    background: #fff; color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    touch-action: manipulation; user-select: none; -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  main {
+    max-width: 480px; min-height: 100%; margin: 0 auto; padding: 20px 16px 24px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  button {
+    font: inherit; font-size: 16px; font-weight: 600; padding: 10px 18px;
+    background: #fff; color: var(--ink); border: 2px solid var(--faint); border-radius: 10px;
+  }
+
+
+  #levels { display: flex; gap: 8px; }
+  #levels button { flex: 1; padding: 10px 0; }
+  #levels button.sel { background: var(--pebble); border-color: var(--pebble); color: #fff; }
+
+  #info {
+    margin: 0; list-style: none;
+    background: #F4F5F7; border: 2px solid var(--faint); border-radius: 12px;
+    padding: 12px 14px; font-size: 16px; line-height: 1.35;
+  }
+  #info li { position: relative; padding-left: 18px; }
+  #info li + li { margin-top: 7px; }
+  #info li::before {
+    content: ""; position: absolute; left: 2px; top: .5em;
+    width: 7px; height: 7px; border-radius: 50%; background: var(--pebble);
+  }
+  #info .price {
+    display: inline-block; margin: 0 2px; padding: 0 7px; border-radius: 6px;
+    background: #fff; border: 1.5px solid var(--pebble);
+    font-size: 13px; font-weight: 700; color: var(--ink); white-space: nowrap;
+  }
+  #info .price.e { background: var(--erase); border-color: var(--erase); color: #fff; }
+
+  #stats { display: flex; gap: 8px; }
+  .stat {
+    flex: 1; text-align: center; padding: 8px 4px;
+    border: 2px solid var(--faint); border-radius: 12px;
+  }
+  .stat span { display: block; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .stat b { display: block; font-size: 26px; line-height: 1.15; font-variant-numeric: tabular-nums; }
+  #budgetBox { flex: 1; position: relative; transition: background .2s, border-color .2s; }
+  #budgetBox.low { background: var(--low); border-color: var(--low); }
+  #budgetBox.low span { color: var(--ink); }
+  #budgetBox.bad { background: var(--red); border-color: var(--red); }
+  #budgetBox.bad span, #budgetBox.bad b { color: #fff; }
+  /* The amount just spent pops up beside the number, then fades. */
+  #delta {
+    position: absolute; top: 22px; left: calc(50% + 30px);
+    font-size: 17px; font-weight: 700; color: var(--erase); opacity: 0;
+  }
+  #budgetBox.low #delta { color: var(--ink); }
+  #delta.show { animation: spent .9s ease-out; }
+  @keyframes spent { 0% { opacity: 1; transform: none; } 60% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10px); } }
+
+  /* One segment per unit of budget; they empty from the right as it is spent. */
+  #meter { display: flex; gap: 2px; height: 12px; margin-top: 8px; }
+  #meter i { flex: 1; border-radius: 2px; background: var(--pebble); transition: background .25s; }
+  #meter.low i { background: var(--low); }
+  #meter i.spent { background: var(--faint); }
+
+  #goal { display: flex; gap: 8px; margin: 0 0 14px; padding: 0; list-style: none; }
+  #goal li {
+    flex: 1; display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+    border: 2px solid var(--faint); border-radius: 12px;
+    font-size: 15px; font-weight: 600; line-height: 1.2; color: var(--muted);
+  }
+  #goal li::before {
+    content: attr(data-n); flex: none; width: 24px; height: 24px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 14px;
+    border: 2px solid currentColor;
+  }
+  #goal li.now { color: var(--ink); border-color: var(--pebble); }
+  #goal li.ok { color: var(--green); border-color: var(--green); }
+  #goal li.ok::before { content: "\2713"; background: var(--green); border-color: var(--green); color: #fff; }
+  #goal li.urgent { background: var(--pebble); border-color: var(--pebble); color: #fff; }
+
+  #result { display: none; text-align: center; color: #fff; margin-bottom: 14px; }
+  #result h1 { margin: 0; font-size: 56px; line-height: 1.1; }
+  #result p { margin: 4px 0 0; font-size: 22px; }
+  #result #time { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  #kernel { margin: -4px 0 0; font-size: 15px; font-weight: 600; color: var(--muted); text-align: center; }
+  #board { display: block; width: 100%; height: auto; }
+  .edge { fill: none; stroke: #C4C9D0; stroke-width: 2.5; stroke-linejoin: round; transition: stroke .2s; }
+  .edge.live { stroke: var(--pebble); }
+  .arrow { fill: #C4C9D0; transition: fill .2s; }
+  .arrow.live { fill: var(--pebble); }
+  .node { cursor: pointer; touch-action: none; }
+  .node .hit { fill: transparent; }
+  .node .pit { fill: #fff; stroke: var(--pebble); stroke-width: 3; }
+  .node .slot { fill: #fff; stroke: #C4C9D0; stroke-width: 2; }
+  .node.on .slot { fill: var(--pebble); stroke: var(--pebble); }
+  .node.goal .pit { stroke-dasharray: 6 4; }
+  .node.on.goal .pit { stroke-dasharray: none; }
+  .node.input .pit { fill: var(--pebble); }
+  .node.input .slot { fill: #fff; stroke: #fff; }
+  .node .lab { font-size: 13px; font-weight: 700; fill: var(--ink); text-anchor: middle;
+               paint-order: stroke; stroke: #fff; stroke-width: 4px; stroke-linejoin: round; }
+  .node.input .lab { fill: var(--muted); }
+  .node .flag path { fill: var(--pebble); stroke: var(--pebble); }
+  .node.erased .pit { fill: var(--erase); stroke: var(--erase); }
+  .node.bad .pit { fill: var(--red); stroke: var(--red); }
+  /* Holding a pebble: an orange outline traces the pit until the erase fires. */
+  .node .hold {
+    fill: none; stroke: var(--erase); stroke-width: 6; stroke-linecap: round;
+    stroke-dasharray: 100; stroke-dashoffset: 100; opacity: 0; pointer-events: none;
+  }
+  .node.holding .hold { animation: holdfill 330ms linear 120ms forwards; }
+  @keyframes holdfill { from { opacity: 1; stroke-dashoffset: 100; } to { opacity: 1; stroke-dashoffset: 0; } }
+  .node text { font-weight: 700; text-anchor: middle; }
+  /* Each node's two prices: compute or uncompute (outlined) and erase (orange). */
+  .node .pc rect { fill: #fff; stroke: var(--pebble); stroke-width: 1.5; }
+  .node .pc text { font-size: 13px; fill: var(--ink); }
+  .node .pe rect { fill: var(--erase); }
+  .node .pe text { font-size: 13px; fill: #fff; }
+  /* Output computed: the values that still have to go pulse. */
+  .node.tidy .pit { stroke: var(--erase); animation: tidy 1.1s ease-in-out infinite; }
+  @keyframes tidy { 50% { stroke-width: 6; } }
+  body.done .node.tidy .pit { stroke: #fff; animation: none; }
+  body.done #board { background: #fff; border-radius: 12px; }
+
+  #bar { display: flex; align-items: center; justify-content: space-between; }
+  #hand { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; font-size: 16px; }
+  #hand.bad { background: var(--red); color: #fff; }
+  #hand i {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--pebble); border: 2px solid var(--pebble);
+  }
+  #hand i.used { background: transparent; border-color: var(--faint); }
+
+  body.done #info, body.done #budget, body.done #goal, body.done #kernel { display: none; }
+  body.done #result { display: block; }
+  body.done #hand { color: #fff; }
+  body.done button { border-color: #fff; }
+  body.done #levels button.sel { border-color: var(--pebble); }
+  body.won { background: var(--green); }
+  body.lost { background: var(--red); }
+  /* Stars, sharing and feel (the same block on every game page). */
+  #levels .mark { margin-left: 5px; font-size: 14px; }
+  #levels .mark.star { color: #E0A800; }
+  #levels .mark.done { color: #E0A800; }
+  main #best { margin-top: 6px; font-size: 17px; font-weight: 650; }
+  main #share {
+    margin-top: 12px; padding: 7px 22px; font-size: 15px;
+    background: transparent; color: #fff; border: 2px solid #fff; border-radius: 10px;
+  }
+  body.lost #share, body.lost #best { display: none; }
+  .confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+  @media (prefers-reduced-motion: no-preference) {
+    @keyframes pop { 0% { transform: scale(.3); } 65% { transform: scale(1.15); } 100% { transform: scale(1); } }
+    .node.on.fresh .slot { transform-box: fill-box; transform-origin: center; animation: pop .22s ease-out; }
+  }
+  /* "Why this game?": one line on why it matters, folded away by default. */
+  #about { border-top: 2px solid var(--faint); padding-top: 12px; font-size: 15px; line-height: 1.45; user-select: text; -webkit-user-select: text; }
+  #about summary { font-weight: 600; color: var(--muted); cursor: pointer; }
+  #about p { margin: 8px 0 0; }
+  #about .refs { font-size: 14px; color: var(--muted); }
+  #about a { color: inherit; }
+  body.won #about, body.done #about { display: none; }
+  /* Header: the game's name and one way out to the list of all games. */
+  #head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: -4px; }
+  #head .kicker { display: block; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  #head h1 { margin: 0; font-size: 22px; line-height: 1.2; color: var(--ink); }
+  #head a {
+    flex: none; padding: 7px 14px; font-size: 15px; font-weight: 650; text-decoration: none;
+    color: var(--ink); border: 2px solid var(--faint); border-radius: 10px;
+  }
+  body.won #head .kicker, body.done #head .kicker { color: rgba(255,255,255,.8); }
+  body.won #head h1, body.done #head h1 { color: #fff; }
+  body.won #head a, body.done #head a { color: #fff; border-color: #fff; }
+  /* Finish screen: share the result, or move on to the next game. */
+  main .actions { display: flex; justify-content: center; gap: 10px; margin-top: 12px; }
+  main .actions #share { margin-top: 0; }
+  main #next {
+    padding: 7px 18px; font-size: 15px; font-weight: 650; text-decoration: none;
+    background: #fff; color: var(--green); border: 2px solid #fff; border-radius: 10px;
+  }
+  body.lost #next { display: none; }
+
+  #hw { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 8px 12px; border: 2px solid var(--faint); border-radius: 12px; }
+  #hw label { font-size: 14px; font-weight: 650; }
+  #hw input { flex: 1; min-width: 120px; accent-color: var(--pebble); }
+  #hw .ends { width: 100%; display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--muted); }
+  #hwNote { width: 100%; font-size: 13px; color: var(--muted); }
+  body.done #hw { display: none; }
+  #hand.mid i { width: 13px; height: 13px; border-width: 1.5px; }
+  #hand.mid { gap: 3px; }
+  #hand .mbar { width: 90px; height: 12px; border-radius: 3px; background: var(--faint); overflow: hidden; }
+  #hand .mbar b { display: block; height: 100%; background: var(--pebble); transition: width .2s; }
+  body.today #hand .mbar b { background: var(--fastc); }
+  #hand span { white-space: nowrap; margin-left: 3px; }
+  #meter.cont { background: var(--faint); border-radius: 3px; }
+  #meter.cont b { display: block; height: 100%; border-radius: 3px; background: var(--pebble); transition: width .25s, background .25s; }
+  #meter.cont.low b { background: var(--low); }
+  .node .pio rect { fill: var(--slowc); }
+  .node .pio text { font-size: 13px; fill: #fff; }
+  #info .price.io { background: var(--slowc); border-color: var(--slowc); color: #fff; }
+  #info .fastw { color: var(--fastc); font-weight: 700; }
+  #info .sloww { color: var(--slowc); font-weight: 700; }
+  .node.input .slot { fill: #fff; stroke: #C4C9D0; }
+  .node.fast .slot { fill: var(--fastc); stroke: var(--fastc); }
+  .node.slow .pit { fill: var(--slowbg); stroke: var(--slowc); }
+  .node.slow.input .pit { fill: var(--slowbg); }
+  .node.input .pit { fill: #fff; }
+  .node.input .lab { fill: var(--ink); }
+  .node.wrote .pit { fill: var(--slowc); stroke: var(--slowc); }
+  body.today #hand i { background: var(--fastc); border-color: var(--fastc); }
+  body.today #hand i.used { background: transparent; border-color: var(--faint); }
+</style>
+<link rel="stylesheet" href="../shared/intro.css?v=5">
+</head>
+<body class="today">
+<main>
+  <header id="head">
+    <div><span class="kicker">Pebble Games</span><h1>Today's chips</h1></div>
+    <button class="beats-toggle" id="beats" type="button"></button>
+    <a href="../games/">Games</a>
+  </header>
+  <div id="levels">
+    <button type="button" data-level="0">Easy</button>
+    <button type="button" data-level="1">Medium</button>
+    <button type="button" data-level="2">Hard</button>
+  </div>
+  <ul id="info">
+    <li><span class="fastw">Fast memory</span> is small; <span class="sloww">slow memory</span> holds everything else. Moving data costs energy; dropping it is free.</li>
+    <li><b>Tap</b> a box to compute it once every box feeding it is in fast memory: pay the <span class="price">outlined</span> price. Tap again to drop it.</li>
+    <li><b>Hold</b> a box to write it to slow memory or read it back: pay the <span class="price io">blue</span> price.</li>
+    <li><b>Goal:</b> both steps below. The budget is what an unfused chip spends: every step reads its inputs from slow memory and writes its result back.</li>
+  </ul>
+  <div id="budget">
+    <div id="stats">
+      <div class="stat" id="budgetBox" aria-live="polite">
+        <span>Budget left</span><b id="left"></b><span id="note"></span><span id="delta" aria-hidden="true"></span>
+      </div>
+    </div>
+    <div id="meter" aria-hidden="true"></div>
+  </div>
+  <ol id="goal">
+    <li id="g1" data-n="1">Compute the output</li>
+    <li id="g2" data-n="2" aria-live="polite"></li>
+  </ol>
+  <div id="result"><h1 id="verdict"></h1><p id="time"></p><p id="summary"></p><p id="detail"></p><p id="best"></p><div class="actions"><button id="share" type="button">Share</button><a id="next" href="../future/">Next: Future chips &rarr;</a></div></div>
+  <p id="kernel"></p>
+  <svg id="board" role="group" aria-label="Computation graph"></svg>
+  <div id="bar">
+    <div id="hand"></div>
+    <button id="reset" type="button">Reset</button>
+  </div>
+  <details id="about">
+    <summary>Why this game?</summary>
+    <p>On today's chips, moving data costs far more than doing math: reading 32 bits from DRAM takes about 640 pJ, a 32-bit multiply about 3.7 pJ. Dropping a value is free; the cost is in writing it out and reading it back, or computing it again. Keeping values on the chip between steps is how FlashAttention beats unfused attention.</p>
+    <p>Prices: moving one slot costs 2, a matrix multiply about as much as reading its weights, an element-wise step 1.</p>
+    <p class="refs">Hong &amp; Kung, STOC 1981 · Horowitz, ISSCC 2014 · Dao et al., FlashAttention, NeurIPS 2022, <a href="https://arxiv.org/abs/2205.14135">arXiv:2205.14135</a></p>
+    <p class="refs"><a href="../games/">All games</a></p>
+  </details>
+</main>
+<script src="../shared/beats.js?v=7"></script>
+<script>
+  // Today's chips: a red-blue pebble game (Hong & Kung) with sizes and prices.
+  // Every box is a tensor from a real inference step, W[v] slots big. Fast
+  // memory holds M slots; slow memory is unlimited. Tap: compute a box (all its
+  // inputs in fast memory; price C[v]) or drop it from fast memory (free). Hold:
+  // write a box to slow memory, or read it back (IO per slot). The input x starts
+  // in slow memory. Solved when the output is written to slow memory; lost when
+  // nothing affordable is left. Budget: the unfused chip (each step reads its
+  // inputs from slow memory, computes, writes its result back). Optima by
+  // Dijkstra over (fast set, slow set): Easy 26 (unfused 56), Medium 25 (67),
+  // Hard 53 (138); the Hard optimum spills the residual r1 around the MLP.
+  const IO = 2;
+  const LEVELS = [
+    { kernel: 'Feed-forward layer (SwiGLU, as in Llama)', M: 6, budget: 56, opt: 26, boxes: [
+      { id: 'x', label: 'x', w: 1, input: true, at: [170, 0] },
+      { id: 'gate', label: 'gate', w: 2, c: 6, from: ['x'], at: [100, 1] },
+      { id: 'up', label: 'up', w: 2, c: 6, from: ['x'], at: [240, 1] },
+      { id: 'act', label: 'SiLU ×', w: 2, c: 1, from: ['gate', 'up'], at: [170, 2] },
+      { id: 'down', label: 'down', w: 1, c: 6, from: ['act'], at: [170, 3] },
+      { id: 'add', label: '+ x', w: 1, c: 1, from: ['x', 'down'], at: [170, 4], lane: { x: 318 }, goal: true },
+    ] },
+    { kernel: 'One attention head (the scores are n × n, so they are big)', M: 6, budget: 67, opt: 25, boxes: [
+      { id: 'x', label: 'x', w: 1, input: true, at: [170, 0] },
+      { id: 'Q', label: 'Q', w: 1, c: 3, from: ['x'], at: [75, 1] },
+      { id: 'K', label: 'K', w: 1, c: 3, from: ['x'], at: [170, 1] },
+      { id: 'V', label: 'V', w: 1, c: 3, from: ['x'], at: [265, 1] },
+      { id: 'S', label: 'QKᵀ', w: 3, c: 3, from: ['Q', 'K'], at: [122, 2] },
+      { id: 'P', label: 'softmax', w: 3, c: 1, from: ['S'], at: [122, 3] },
+      { id: 'O', label: '× V', w: 1, c: 3, from: ['P', 'V'], at: [176, 4] },
+      { id: 'out', label: 'out', w: 1, c: 3, from: ['O'], at: [176, 5], goal: true },
+    ] },
+    { kernel: 'Transformer block: attention, then feed-forward', M: 6, budget: 138, opt: 53, boxes: [
+      { id: 'x', label: 'x', w: 1, input: true, at: [100, 0] },
+      { id: 'n1', label: 'norm', w: 1, c: 1, from: ['x'], at: [100, 1] },
+      { id: 'Q', label: 'Q', w: 1, c: 3, from: ['n1'], at: [42, 2] },
+      { id: 'K', label: 'K', w: 1, c: 3, from: ['n1'], at: [100, 2] },
+      { id: 'V', label: 'V', w: 1, c: 3, from: ['n1'], at: [158, 2] },
+      { id: 'S', label: 'QKᵀ', w: 3, c: 3, from: ['Q', 'K'], at: [72, 3] },
+      { id: 'P', label: 'softmax', w: 3, c: 1, from: ['S'], at: [72, 4] },
+      { id: 'O', label: '× V', w: 1, c: 3, from: ['P', 'V'], at: [126, 5] },
+      { id: 'proj', label: 'proj', w: 1, c: 3, from: ['O'], at: [126, 6] },
+      { id: 'r1', label: '+ x', w: 1, c: 1, from: ['x', 'proj'], at: [126, 7], lane: { x: 8 } },
+      { id: 'n2', label: 'norm', w: 1, c: 1, from: ['r1'], at: [272, 3] },
+      { id: 'up', label: 'up', w: 3, c: 9, from: ['n2'], at: [272, 4] },
+      { id: 'gelu', label: 'GELU', w: 3, c: 1, from: ['up'], at: [272, 5] },
+      { id: 'down', label: 'down', w: 1, c: 9, from: ['gelu'], at: [272, 6] },
+      { id: 'r2', label: '+', w: 1, c: 1, from: ['r1', 'down'], at: [272, 7], goal: true },
+    ] },
+  ];
+  LEVELS.forEach(l => l.boxes.forEach(b => { if (b.lane) b.lane = Object.fromEntries((b.from || []).filter(id => l.boxes.find(o => o.id === id).input).map(id => [id, b.lane.x])); }));
+
+  const SVG = 'http://www.w3.org/2000/svg';
+  const $ = id => document.getElementById(id);
+  const board = $('board'), hand = $('hand');
+  const levelButtons = [...document.querySelectorAll('#levels button')];
+  const DY = 80, TOP = 40, PIT_H = 26;
+  const pitW = w => 14 + 16 * w;
+  let L, B, M, BUDGET, OPT, levelName, nodes, edges, fresh = -1;
+  let holdTimer = null, holdNode = null, suppressClick = false, startedAt, solveMs, done, lost;
+  function pos(b) { return { x: b.at[0], y: TOP + DY * (L.rows - 1 - b.at[1]) }; }
+  const fmt = x => Number.isInteger(x) ? String(x) : x.toFixed(1);
+  const cw = v => Math.max(22, 7.4 * String(v).length + 6);
+  function chip(cls, cx, cy, v) {
+    const w = cw(v);
+    return '<g class="' + cls + '"><rect x="' + (cx - w / 2) + '" y="' + (cy - 9) + '" width="' + w + '" height="18" rx="5"/>' +
+      '<text x="' + cx + '" y="' + (cy + 4.5) + '">' + v + '</text></g>';
+  }
+  function build() {
+    L.rows = Math.max(...L.boxes.map(b => b.at[1])) + 1;
+    board.setAttribute('viewBox', '0 0 340 ' + (TOP + DY * (L.rows - 1) + 42));
+    board.innerHTML = '';
+    const byId = Object.fromEntries(L.boxes.map((b, i) => [b.id, i]));
+    edges = [];
+    const eg = document.createElementNS(SVG, 'g');
+    L.boxes.forEach(b => (b.from || []).forEach(id => {
+      const src = B[byId[id]], p = pos(src), q = pos(b);
+      let d, mx, my, ang;
+      if (b.lane && b.lane[id] != null) {
+        const lx = b.lane[id], side = lx > p.x ? 1 : -1;
+        d = 'M' + (p.x + side * pitW(src.w) / 2) + ' ' + p.y + 'H' + lx + 'V' + q.y + 'H' + (q.x + side * pitW(b.w) / 2);
+        mx = lx; my = (p.y + q.y) / 2; ang = q.y < p.y ? -90 : 90;
+      } else {
+        d = 'M' + p.x + ' ' + p.y + 'L' + q.x + ' ' + q.y;
+        mx = (p.x + q.x) / 2; my = (p.y + q.y) / 2; ang = Math.atan2(q.y - p.y, q.x - p.x) * 180 / Math.PI;
+      }
+      const path = document.createElementNS(SVG, 'path');
+      path.setAttribute('class', 'edge'); path.setAttribute('d', d);
+      const arrow = document.createElementNS(SVG, 'path');
+      arrow.setAttribute('class', 'arrow'); arrow.setAttribute('d', 'M5 0L-4 -5L-4 5Z');
+      arrow.setAttribute('transform', 'translate(' + mx + ' ' + my + ') rotate(' + ang + ')');
+      eg.appendChild(path); eg.appendChild(arrow);
+      edges.push({ from: byId[id], path, arrow });
+    }));
+    board.appendChild(eg);
+    nodes = B.map((b, v) => {
+      const { x, y } = pos(b), pw = pitW(b.w);
+      const g = document.createElementNS(SVG, 'g');
+      g.setAttribute('class', 'node' + (b.input ? ' input' : '') + (b.goal ? ' goal' : ''));
+      g.setAttribute('role', 'button');
+      g.setAttribute('aria-label', b.label);
+      let slots = '';
+      for (let k = 0; k < b.w; k++) slots += '<circle class="slot" cx="' + (x - (b.w - 1) * 8 + 16 * k) + '" cy="' + y + '" r="5.5"/>';
+      const labY = y - PIT_H / 2 - 7;
+      const flag = b.goal ? '<g class="flag" transform="translate(' + (x + 12 + b.label.length * 3.6) + ' ' + (labY - 13) + ') scale(.7)">' +
+        '<path d="M2 1v22" stroke-width="2.6" stroke-linecap="round" fill="none"/><path d="M3.5 2h13l-3.5 4.5 3.5 4.5h-13z" stroke="none"/></g>' : '';
+      const [c1, c2] = prices(b);
+      g.innerHTML =
+        '<rect class="hit" x="' + (x - Math.max(pw, 56) / 2 - 4) + '" y="' + (labY - 16) + '" width="' + (Math.max(pw, 56) + 8) + '" height="' + (PIT_H + 56) + '"/>' +
+        '<rect class="pit" x="' + (x - pw / 2) + '" y="' + (y - PIT_H / 2) + '" width="' + pw + '" height="' + PIT_H + '" rx="9"/>' + slots +
+        '<rect class="hold" x="' + (x - pw / 2) + '" y="' + (y - PIT_H / 2) + '" width="' + pw + '" height="' + PIT_H + '" rx="9" pathLength="100"/>' +
+        '<text class="lab" x="' + x + '" y="' + labY + '">' + b.label + '</text>' + flag +
+        (c1 == null ? chip(c2[0], x, y + PIT_H / 2 + 13, c2[1]) : chip(c1[0], x - 2 - cw(c1[1]) / 2, y + PIT_H / 2 + 13, c1[1]) + chip(c2[0], x + 2 + cw(c2[1]) / 2, y + PIT_H / 2 + 13, c2[1]));
+      g.addEventListener('pointerdown', () => press(v));
+      for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) g.addEventListener(ev, release);
+      g.addEventListener('click', () => { if (suppressClick) { suppressClick = false; return; } tap(v); });
+      board.appendChild(g);
+      return g;
+    });
+  }
+  function flash(el, cls) {
+    if (cls === 'bad') kit.buzz();
+    el.classList.add(cls);
+    clearTimeout(el[cls + 'Timer']);
+    el[cls + 'Timer'] = setTimeout(() => el.classList.remove(cls), 450);
+  }
+  function release() { clearTimeout(holdTimer); endHold(); }
+  function endHold() { if (holdNode) holdNode.classList.remove('holding'); holdNode = null; }
+  function holdThen(v, fn) {
+    holdNode = nodes[v];
+    holdNode.classList.add('holding');
+    holdTimer = setTimeout(() => { endHold(); suppressClick = true; fn(); }, 450);
+  }
+  function clock(ms) {
+    const t = Math.round(ms / 100), m = Math.floor(t / 600), sec = ((t % 600) / 10).toFixed(1);
+    return m ? m + ':' + sec.padStart(4, '0') : sec + ' s';
+  }
+  let moved = 0;
+  function act() { if (moved++ === 0) startedAt = performance.now(); }
+  function pay(amount, kind) {
+    const d = $('delta');
+    d.textContent = '−' + fmt(amount);
+    d.classList.remove('show'); void d.offsetWidth; d.classList.add('show');
+    if (finished()) done = true;
+    else if (stuck()) done = lost = true;
+    if (done) solveMs = performance.now() - startedAt;
+    if (done && !lost) kit.finish(typeof finishName === 'function' ? finishName() : levelName, spent(), OPT, clock(solveMs), typeof finishOpts === 'function' ? finishOpts() : {});
+    sound(done ? (lost ? 'lose' : 'win') : kind);
+  }
+  function sound(type) {
+    const k = B.filter((b, v) => present(v)).length;
+    if (window.PebbleBeats) PebbleBeats.cue(type, B.length ? k / B.length : 0);
+  }
+  const left = () => BUDGET - spent();
+  function tooDear(v) { sound('bad'); flash(nodes[v], 'bad'); flash($('budgetBox'), 'bad'); }
+  function bad(v, alsoHand) { sound('bad'); flash(nodes[v], 'bad'); if (alsoHand) flash(hand, 'bad'); }
+  function drawBudget() {
+    const rest = left(), low = rest <= Math.max(3, Math.round(BUDGET / 5));
+    $('left').textContent = fmt(rest);
+    $('note').textContent = low ? 'of ' + fmt(BUDGET) + ' · running low' : 'of ' + fmt(BUDGET);
+    $('budgetBox').classList.toggle('low', low);
+    $('meter').classList.toggle('low', low);
+    if (BUDGET > 60) $('meter').firstChild.style.width = Math.max(0, rest) / BUDGET * 100 + '%';
+    else [...$('meter').children].forEach((seg, k) => seg.classList.toggle('spent', k >= rest));
+  }
+  function drawHand(held) {
+    // Up to 8 slots as dots; a bigger memory as a small bar.
+    hand.classList.toggle('mid', M > 5 && M <= 8);
+    if (M > 8) { hand.innerHTML = '<span class="mbar"><b style="width:' + held / M * 100 + '%"></b></span><span>' + held + ' of ' + M + ' free</span>'; return; }
+    let dots = '';
+    for (let k = 0; k < M; k++) dots += '<i class="' + (k < held ? '' : 'used') + '"></i>';
+    hand.innerHTML = dots + '<span>' + held + ' free</span>';
+  }
+  function setLevel(btn) {
+    L = LEVELS[Number(btn.dataset.level)];
+    const byId = Object.fromEntries(L.boxes.map((b, i) => [b.id, i]));
+    B = L.boxes.map(b => ({ ...b, preds: (b.from || []).map(id => byId[id]) }));
+    M = L.M; BUDGET = L.budget; OPT = L.opt;
+    if (typeof tune === 'function') tune();
+    levelName = btn.dataset.name;
+    levelButtons.forEach(b => b.classList.toggle('sel', b === btn));
+    $('kernel').textContent = L.kernel;
+    $('meter').classList.toggle('cont', BUDGET > 60);
+    $('meter').innerHTML = BUDGET > 60 ? '<b></b>' : '<i></i>'.repeat(Math.ceil(BUDGET));
+    build();
+    reset();
+  }
+  // A press that starts on the board must never count as a Reset or level tap
+  // (finishing swaps the rules for the result while the finger is still down).
+  let pressOnBoard = false;
+  document.addEventListener('pointerdown', e => { pressOnBoard = board.contains(e.target); }, true);
+  const buttonTap = fn => e => { if (pressOnBoard && e.detail !== 0) return; fn(); };
+
+  // ---------- Stars, feel and sharing (the same block on every game page) ----------
+  // Progress is kept in this browser only: for each level, the best score and
+  // that level's optimum, so a star means best <= optimum (lower is better).
+  const KIT = { game: 'today', title: 'Today\'s chips', unit: 'cost', path: 'today/' };
+  const kit = (() => {
+    const KEY = 'pebble-games-v1', BASE = 'https://mcthumann.github.io/pebble_web_game/';
+    const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const el = id => document.getElementById(id);
+    let data = {}, shareText = '', lastBuzz = 0;
+    try { data = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) {}
+    const save = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {} };
+    const starred = r => !!r && r.best <= r.opt;
+
+    // Level buttons get an outline star once finished and a filled star once
+    // finished optimally, so the goal is to fill every star.
+    // (The games list page reads the same saved progress to show stars per game.)
+    function marks() {
+      document.querySelectorAll('#levels button:not([data-daily])').forEach(b => {
+        const r = (data[KIT.game] || {})[b.dataset.name];
+        b.innerHTML = b.dataset.name + (!r ? '' : starred(r)
+          ? '<span class="mark star" aria-label="optimal">★</span>'
+          : '<span class="mark done" aria-label="finished">☆</span>');
+      });
+    }
+
+    function buzz(pattern) {
+      const now = performance.now();
+      if (now - lastBuzz < 120) return;
+      lastBuzz = now;
+      try { if (navigator.vibrate) navigator.vibrate(pattern || 30); } catch (e) {}
+    }
+
+    // A short, light confetti burst, only for optimal finishes.
+    function confetti() {
+      if (calm) return;
+      const c = document.createElement('canvas'), ctx = c.getContext('2d'), dpr = window.devicePixelRatio || 1;
+      const W = innerWidth, H = innerHeight;
+      c.className = 'confetti'; c.width = W * dpr; c.height = H * dpr;
+      document.body.appendChild(c); ctx.scale(dpr, dpr);
+      const colors = ['#FFFFFF', '#F5C542', '#FFE8A3', '#BFF0DD'];
+      const bits = Array.from({ length: 70 }, () => ({
+        x: W / 2 + (Math.random() - .5) * 140, y: H * .26,
+        vx: (Math.random() - .5) * 9, vy: -3 - Math.random() * 8,
+        a: Math.random() * 6.3, va: (Math.random() - .5) * .3,
+        w: 5 + Math.random() * 4, h: 8 + Math.random() * 6,
+        c: colors[Math.floor(Math.random() * colors.length)],
+      }));
+      const t0 = performance.now();
+      (function frame(t) {
+        const age = (t - t0) / 1600;
+        ctx.clearRect(0, 0, W, H);
+        if (age >= 1) { c.remove(); return; }
+        ctx.globalAlpha = Math.min(1, (1 - age) * 2.5);
+        for (const b of bits) {
+          b.vy += .28; b.vx *= .99; b.x += b.vx; b.y += b.vy; b.a += b.va;
+          ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.a);
+          ctx.fillStyle = b.c; ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h); ctx.restore();
+        }
+        requestAnimationFrame(frame);
+      })(t0);
+    }
+
+    // A finished run: save it, note a new star or best, celebrate, and get the
+    // share line ready. Pass { record: false } for levels that should not count.
+    function finish(level, score, opt, time, opts = {}) {
+      const optimal = score <= opt;
+      let line = '';
+      if (opts.record !== false) {
+        const g = data[KIT.game] = data[KIT.game] || {};
+        const old = g[level];
+        g[level] = { best: old ? Math.min(old.best, score) : score, opt };
+        save();
+        marks();
+        if (optimal && !starred(old)) line = 'New star ★';
+        else if (!optimal && !old) line = '☆ earned · match the optimum to fill it';
+        else if (!optimal && score < old.best) line = 'New best';
+        else if (!optimal && old) line = 'Your best: ' + (KIT.unit === 'cost' ? 'cost ' : '') + old.best;
+      }
+      el('best').textContent = line;
+      const amount = KIT.unit === 'cost' ? 'cost ' + score : score + ' ' + KIT.unit;
+      shareText = (optimal ? '★ ' : '') + 'Pebble Game · ' + KIT.title + ' ' + level + ' · ' + amount +
+        (optimal ? ', optimal' : ' (optimal ' + opt + ')') + ' in ' + time + '\n' + (opts.url || BASE + KIT.path);
+      el('share').textContent = 'Share';
+      nextLabel();
+      buzz(optimal ? [15, 60, 15, 60, 30] : 25);
+      if (optimal) setTimeout(confetti, 60);
+    }
+
+    function clear() { const b = el('best'); if (b) b.textContent = ''; }
+
+    // Next climbs this game's levels first (Easy, Medium, Hard), then moves on
+    // to the next game. gameNext keeps the label written in the page for that.
+    let gameNext = '';
+    function nextLevelButton() {
+      const buttons = [...document.querySelectorAll('#levels button')];
+      const i = buttons.findIndex(b => b.classList.contains('sel'));
+      return i >= 0 && i < buttons.length - 1 ? buttons[i + 1] : null;
+    }
+    function nextLabel() {
+      const b = nextLevelButton();
+      el('next').textContent = b ? 'Next: ' + b.dataset.name + ' \u2192' : gameNext;
+    }
+
+    // Phones get the share sheet; elsewhere the line is copied.
+    async function share() {
+      const btn = el('share');
+      try {
+        if (navigator.share && matchMedia('(pointer: coarse)').matches) { await navigator.share({ text: shareText }); return; }
+        await navigator.clipboard.writeText(shareText);
+        btn.textContent = 'Copied';
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+        const t = document.createElement('textarea');
+        t.value = shareText; document.body.appendChild(t); t.select();
+        let ok = false; try { ok = document.execCommand('copy'); } catch (e2) {}
+        t.remove();
+        btn.textContent = ok ? 'Copied' : 'Copy failed';
+      }
+      setTimeout(() => { btn.textContent = 'Share'; }, 1600);
+    }
+
+    function init() {
+      document.querySelectorAll('#levels button').forEach(b => { b.dataset.name = b.textContent.trim(); });
+      el('share').addEventListener('click', share);
+      gameNext = el('next').textContent;
+      el('next').addEventListener('click', e => {
+        const b = nextLevelButton();
+        if (b) { e.preventDefault(); b.click(); }
+      });
+      marks();
+    }
+    return { init, finish, clear, buzz, text: () => shareText };
+  })();
+
+  let F, S, computeCost, moveCost, OUT;
+  const prices = b => [b.input ? null : ['pc', b.c], ['pio', IO * b.w]];
+  const present = v => F && F[v];
+  const spent = () => computeCost + moveCost;
+  const used = () => B.reduce((s, b, v) => s + (F[v] ? b.w : 0), 0);
+  const ready = v => B[v].preds.every(u => F[u]);
+  const finished = () => S[OUT];
+  // Lost when no move that costs anything still fits the budget (drops are free, so
+  // count the room they could make).
+  function stuck() {
+    const rest = left();
+    return !B.some((b, v) => {
+      if (F[v] && !S[v] && IO * b.w <= rest) return true;                       // write
+      if (!F[v] && S[v] && IO * b.w <= rest && b.w <= M) return true;           // read
+      if (!F[v] && !b.input && ready(v) && b.c <= rest &&
+          b.w + b.preds.reduce((s, u) => s + B[u].w, 0) <= M) return true;      // compute
+      return false;
+    });
+  }
+  function read(v) {
+    if (B[v].w > M - used()) { bad(v, true); return; }
+    if (IO * B[v].w > left()) { tooDear(v); return; }
+    act(); F[v] = true; fresh = v; moveCost += IO * B[v].w; pay(IO * B[v].w, 'place'); render();
+  }
+  // Tap: compute (or, for the input, read), or drop from fast memory for free.
+  function tap(v) {
+    if (done) return;
+    if (F[v]) { F[v] = false; fresh = -1; sound('remove'); render(); return; }
+    if (B[v].input || (!ready(v) && S[v])) { read(v); return; }
+    if (!ready(v)) { bad(v); return; }
+    if (B[v].w > M - used()) { bad(v, true); return; }
+    if (B[v].c > left()) { tooDear(v); return; }
+    act(); F[v] = true; fresh = v; computeCost += B[v].c;
+    pay(B[v].c, v === OUT ? 'flag' : 'place'); render();
+  }
+  // Hold: write to slow memory, or read back from it.
+  function press(v) {
+    suppressClick = false; release();
+    if (done) return;
+    if (F[v] && !S[v]) holdThen(v, () => {
+      if (IO * B[v].w > left()) { tooDear(v); return; }
+      act(); S[v] = true; moveCost += IO * B[v].w; flash(nodes[v], 'wrote'); pay(IO * B[v].w, 'erase'); render();
+    });
+    else if (!F[v] && S[v]) holdThen(v, () => read(v));
+  }
+  function render() {
+    B.forEach((b, v) => {
+      nodes[v].classList.toggle('fast', F[v]);
+      nodes[v].classList.toggle('on', F[v]);
+      nodes[v].classList.toggle('slow', S[v]);
+      nodes[v].classList.toggle('fresh', v === fresh);
+    });
+    edges.forEach(e => { e.path.classList.toggle('live', F[e.from]); e.arrow.classList.toggle('live', F[e.from]); });
+    drawHand(M - used());
+    drawBudget();
+    $('g1').className = F[OUT] || S[OUT] ? 'ok' : 'now';
+    $('g2').className = F[OUT] && !S[OUT] ? 'urgent' : '';
+    $('g2').textContent = F[OUT] && !S[OUT] ? 'Now hold it to write it to slow memory' : 'Then write it to slow memory';
+    document.body.classList.toggle('done', done);
+    document.body.classList.toggle('won', done && !lost);
+    document.body.classList.toggle('lost', lost);
+    if (done) {
+      const c = spent();
+      $('verdict').textContent = lost ? 'Out of budget' : c === OPT ? 'Optimal!' : 'Solved';
+      $('time').textContent = lost ? '' : clock(solveMs);
+      $('summary').textContent = lost ? 'The output never reached slow memory' : levelName + ' · cost ' + c + ' · optimal ' + OPT;
+      $('detail').textContent = 'compute ' + computeCost + ' + moving data ' + moveCost + ' = ' + c + ' · an unfused chip spends ' + BUDGET;
+    }
+  }
+  function reset() {
+    kit.clear(); release();
+    OUT = B.findIndex(b => b.goal);
+    F = B.map(() => false);
+    S = B.map(b => !!b.input);
+    computeCost = moveCost = 0; fresh = -1; moved = 0;
+    done = lost = false;
+    $('delta').classList.remove('show');
+    render(); sound('start');
+  }
+
+  levelButtons.forEach(b => b.addEventListener('click', buttonTap(() => setLevel(b))));
+  $('reset').addEventListener('click', buttonTap(reset));
+  board.addEventListener('contextmenu', e => e.preventDefault());
+  kit.init();
+  if (window.PebbleBeats) PebbleBeats.toggleButton(document.getElementById('beats'));
+  setLevel(levelButtons[0]);
+  function openAbout() {
+    if (location.hash !== '#about') return;
+    const a = document.getElementById('about');
+    a.open = true;
+    a.scrollIntoView({ block: 'start' });
+  }
+  window.addEventListener('hashchange', openAbout);
+  openAbout();
+</script>
+<script src="../shared/intro.js?v=6" data-game="today"></script>
+</body>
+</html>
