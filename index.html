@@ -18,7 +18,7 @@
 <style>
   :root {
     --ink: #1F2329; --muted: #7A808A; --faint: #D5D9DF;
-    --pebble: #1A1C20; --red: #E31A1C; --green: #009E73;
+    --pebble: #1A1C20; --red: #E31A1C; --green: #009E73; --gold: #E0A800;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; height: 100%; }
@@ -392,12 +392,13 @@
   // Spots 0..N snake along one line: rows alternate left-to-right and right-to-left.
   // Spot 0 is permanently pebbled and does not use one of the player's pebbles.
   function build() {
-    const rows = (N + 1) / PER_ROW;
+    const rows = Math.ceil((N + 1) / PER_ROW);
+    const spotX = i => { const row = Math.floor(i / PER_ROW), k = i % PER_ROW; return X0 + DX * (row % 2 ? PER_ROW - 1 - k : k); };
     let d = 'M' + X0 + ' ' + Y0 + 'H' + XR;
     for (let r = 1; r < rows; r++) {
       const y = Y0 + DY * r, right = r % 2 === 1;
       d += 'A' + DY / 2 + ' ' + DY / 2 + ' 0 0 ' + (right ? 1 : 0) + ' ' + (right ? XR : X0) + ' ' + y +
-           'H' + (right ? X0 : XR);
+           'H' + spotX(Math.min(N, (r + 1) * PER_ROW - 1));
     }
     board.setAttribute('viewBox', '-18 6 340 ' + rows * DY);
     board.innerHTML = '<path id="track" d="' + d + '"/>';
